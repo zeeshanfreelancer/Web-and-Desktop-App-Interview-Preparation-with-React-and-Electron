@@ -7,6 +7,10 @@ const { getLicenseStatus, activateLicense } = require("./license/validator");
 
 let mainWindow = null;
 const isDev = !app.isPackaged;
+const sessionDataPath = path.join(app.getPath("temp"), "Interview Prep", "SessionData");
+
+fs.mkdirSync(sessionDataPath, { recursive: true });
+app.setPath("sessionData", sessionDataPath);
 
 function sendToRenderer(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {

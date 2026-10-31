@@ -10,6 +10,7 @@ import {
 } from "react-icons/fi";
 import { localStorageService } from "../services/localStorage";
 import { highlightHtml } from "../utils/highlightSearch";
+import { sanitizeRichText } from "../utils/sanitizeRichText";
 import RichTextEditor from "./RichTextEditor";
 
 export default function QuestionBoard({
@@ -319,12 +320,14 @@ export default function QuestionBoard({
       )}
       {filteredQuestions.map((q, index) => {
         const trimmedSearch = searchTerm.trim();
+        const safeQuestion = sanitizeRichText(q.question);
+        const safeAnswer = sanitizeRichText(q.answer);
         const displayQuestion = trimmedSearch
-          ? highlightHtml(q.question, trimmedSearch)
-          : q.question;
-        const displayAnswer = trimmedSearch && q.answer
-          ? highlightHtml(q.answer, trimmedSearch)
-          : q.answer;
+          ? highlightHtml(safeQuestion, trimmedSearch)
+          : safeQuestion;
+        const displayAnswer = trimmedSearch && safeAnswer
+          ? highlightHtml(safeAnswer, trimmedSearch)
+          : safeAnswer;
 
         return (
         <div

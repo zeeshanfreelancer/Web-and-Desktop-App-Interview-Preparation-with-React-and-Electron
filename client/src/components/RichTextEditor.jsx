@@ -1,13 +1,14 @@
 import { useRef, useEffect } from 'react';
 import { FiBold, FiItalic, FiList, FiType } from 'react-icons/fi';
 import { MdFormatListNumbered, MdColorize } from 'react-icons/md';
+import { sanitizeRichText } from '../utils/sanitizeRichText';
 
 export default function RichTextEditor({ value, onChange, placeholder, className = "" }) {
   const editorRef = useRef(null);
   const lastSyncedValue = useRef(null);
 
   useEffect(() => {
-    const nextValue = value ?? '';
+    const nextValue = sanitizeRichText(value);
     if (lastSyncedValue.current === nextValue) return;
 
     lastSyncedValue.current = nextValue;
@@ -27,7 +28,10 @@ export default function RichTextEditor({ value, onChange, placeholder, className
   const syncValue = () => {
     if (!editorRef.current) return;
 
-    const html = editorRef.current.innerHTML;
+    const html = sanitizeRichText(editorRef.current.innerHTML);
+    if (editorRef.current.innerHTML !== html) {
+      editorRef.current.innerHTML = html;
+    }
     lastSyncedValue.current = html;
     onChange(html);
   };
