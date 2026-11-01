@@ -70,7 +70,6 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
   const [editingLang, setEditingLang] = useState(null);
   const [editingValue, setEditingValue] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
-  const [settingsView, setSettingsView] = useState("dashboard");
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
   const [editorSessionKey, setEditorSessionKey] = useState(0);
   const [selectedQuestionId, setSelectedQuestionId] = useState(null);
@@ -306,7 +305,6 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
 
   const openModal = () => {
     setCurrentTime(Date.now());
-    setSettingsView("dashboard");
     setModalOpen(true);
   };
 
@@ -533,7 +531,7 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div
             ref={modalRef}
-            className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full mx-4 max-h-[88vh] flex flex-col"
+            className="bg-white rounded-2xl shadow-2xl w-[96vw] h-[94vh] flex flex-col"
           >
             {/* Modal Header - Fixed, non-scrollable */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
@@ -547,11 +545,10 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
               </button>
             </div>
 
-            <div className="border-b bg-gray-50 px-6 py-3"><div className="flex flex-wrap gap-2"><button onClick={() => setSettingsView("dashboard")} className={`rounded-lg px-4 py-2 text-sm font-medium ${settingsView === "dashboard" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-white"}`}>Dashboard</button><button onClick={() => setSettingsView("workspace")} className={`rounded-lg px-4 py-2 text-sm font-medium ${settingsView === "workspace" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-white"}`}>Workspace settings</button></div></div>
-
-            {/* Modal Content - Scrollable */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {settingsView === "dashboard" ? <AccountDashboard user={user} onUserUpdated={onUserUpdated} onSignOut={onSignOut} /> : <>
+            {/* Account and workspace are visible together on one full-size page. */}
+            <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(360px,0.9fr)_minmax(0,1.35fr)]">
+              <aside className="overflow-y-auto border-b border-gray-200 bg-slate-50 p-6 lg:border-b-0 lg:border-r"><AccountDashboard user={user} onUserUpdated={onUserUpdated} onSignOut={onSignOut} /></aside>
+              <section className="overflow-y-auto p-6">
               {/* License Status */}
               <div className="mb-6 p-4 rounded-xl bg-purple-50 border border-purple-100">
                 <div className="flex items-center gap-2 text-purple-700 font-semibold mb-2">
@@ -606,8 +603,6 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
                   </button>
                 </div>
               </div>
-              </>}
-
               {/* Languages List */}
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
@@ -773,6 +768,7 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
                   )}
                 </div>
               </div>
+              </section>
             </div>
 
           </div>
