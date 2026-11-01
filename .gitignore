@@ -7,9 +7,20 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependencies and generated output
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.cache/
+coverage/
+*.tsbuildinfo
+
+# Local environment files and secrets (keep example templates in Git)
+.env
+.env.*
+!/.env.example
+!**/.env.example
 *.local
 
 # Editor directories and files
@@ -26,3 +37,9 @@ dist-ssr
 # License secrets (never commit)
 desktop/license/private.pem
 desktop/license/passwords.json
+
+# Electron packaging output
+desktop/dist/
+
+# Supabase local CLI state
+supabase/.temp/

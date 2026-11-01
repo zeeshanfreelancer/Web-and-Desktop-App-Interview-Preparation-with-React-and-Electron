@@ -8,18 +8,20 @@ import { profileService } from "./services/profiles";
 import { localStorageService } from "./services/localStorage";
 
 function App() {
-  const [licenseState, setLicenseState] = useState({ loading: true, status: "licensed" });
-  const [profileState, setProfileState] = useState({ loading: true, user: null, needsSetup: false });
+  const [licenseState, setLicenseState] = useState(() => isElectron()
+    ? { loading: true, status: "licensed" }
+    : { loading: false, status: "licensed" });
+  const [profileState, setProfileState] = useState(() => ({ loading: profileService.isConfigured(), user: null }));
 
   useEffect(() => {
-    setProfileState({ loading: false, user: null, needsSetup: profileService.getProfiles().length === 0 });
+    if (!profileService.isConfigured()) return;
+    profileService.getCurrentUser()
+      .then((user) => setProfileState({ loading: false, user }))
+      .catch(() => setProfileState({ loading: false, user: null }));
   }, []);
 
   useEffect(() => {
-    if (!isElectron()) {
-      setLicenseState({ loading: false, status: "licensed" });
-      return;
-    }
+    if (!isElectron()) return;
 
     getLicenseStatus()
       .then((result) => {
@@ -73,14 +75,18 @@ function App() {
     );
   }
 
+  if (!profileService.isConfigured()) {
+    return <div className="min-h-screen bg-blue-100 flex items-center justify-center p-4"><div className="max-w-lg rounded-xl bg-white p-8 shadow-lg"><h1 className="text-xl font-bold">Supabase setup required</h1><p className="mt-3 text-sm text-gray-600">{profileService.configurationError}</p><p className="mt-2 text-sm text-gray-600">Then run <code className="rounded bg-gray-100 px-1">supabase/schema.sql</code> in the Supabase SQL Editor.</p></div></div>;
+  }
+
   if (profileState.loading) {
     return <div className="min-h-screen bg-blue-100 flex items-center justify-center text-gray-600">Loading profile...</div>;
   }
 
   if (!profileState.user) {
-    return <ProfileAccess needsSetup={profileState.needsSetup} onSignedIn={(user, isNewAdmin) => {
-      localStorageService.setActiveProfile(user.id, isNewAdmin);
-      setProfileState({ loading: false, user, needsSetup: false });
+    return <ProfileAccess onSignedIn={(user) => {
+      localStorageService.setActiveProfile(user.id);
+      setProfileState({ loading: false, user });
     }} />;
   }
 
@@ -89,8 +95,7 @@ function App() {
       <LanguageTabs
         licenseState={licenseState}
         user={profileState.user}
-        onUserUpdated={(user) => setProfileState((state) => ({ ...state, user }))}
-        onSignOut={() => setProfileState((state) => ({ ...state, user: null }))}
+        onSignOut={() => setProfileState({ loading: false, user: null })}
       />
       <UpdateBanner />
     </div>

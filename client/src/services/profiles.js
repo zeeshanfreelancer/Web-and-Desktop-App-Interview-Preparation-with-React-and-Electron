@@ -1,68 +1,87 @@
-const PROFILES_KEY = "interview-profiles";
+import { supabase, supabaseConfigurationError } from "./supabase";
 
-const newId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const requireSupabase = () => {
+  if (!supabase) throw new Error(supabaseConfigurationError);
+  return supabase;
+};
 
-async function hashPassword(password, salt) {
-  const data = new TextEncoder().encode(`${salt}:${password}`);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
+const toProfile = (profile) => profile && ({
+  id: profile.id,
+  name: profile.full_name,
+  email: profile.email,
+  role: profile.role,
+  plan: profile.plan,
+  approvalStatus: profile.approval_status,
+  createdAt: profile.created_at,
+  reviewedAt: profile.reviewed_at
+});
 
-const readProfiles = () => JSON.parse(localStorage.getItem(PROFILES_KEY) || "[]");
-const writeProfiles = (profiles) => localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+const getProfile = async (id) => {
+  const client = requireSupabase();
+  const { data, error } = await client.from("profiles").select("*").eq("id", id).single();
+  if (error) throw error;
+  return toProfile(data);
+};
 
 export const profileService = {
-  getProfiles: readProfiles,
+  isConfigured: () => Boolean(supabase),
+  configurationError: supabaseConfigurationError,
 
-  async createAdmin({ name, username, password }) {
-    if (readProfiles().length) throw new Error("An admin profile already exists.");
-    return this.createProfile({ name, username, password, role: "admin" });
+  async register({ name, email, password, plan }) {
+    const client = requireSupabase();
+    const { data, error } = await client.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { full_name: name.trim(), plan } }
+    });
+    if (error) throw error;
+    if (!data.user) throw new Error("Could not create your request.");
+    return data;
   },
 
-  async createProfile({ name, username, password, role = "client" }) {
-    const profiles = readProfiles();
-    const normalizedUsername = username.trim().toLowerCase();
-    if (!name.trim() || !normalizedUsername || !password) throw new Error("Name, username, and password are required.");
-    if (profiles.some((profile) => profile.username === normalizedUsername)) throw new Error("That username is already in use.");
-
-    const salt = newId();
-    const profile = {
-      id: newId(), name: name.trim(), username: normalizedUsername, role,
-      salt, passwordHash: await hashPassword(password, salt), createdAt: new Date().toISOString()
-    };
-    profiles.push(profile);
-    writeProfiles(profiles);
-    return this.publicProfile(profile);
-  },
-
-  async authenticate(username, password) {
-    const profile = readProfiles().find((item) => item.username === username.trim().toLowerCase());
-    if (!profile || profile.passwordHash !== await hashPassword(password, profile.salt)) {
-      throw new Error("Incorrect username or password.");
+  async authenticate(email, password) {
+    const client = requireSupabase();
+    const { data, error } = await client.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) throw error;
+    const profile = await getProfile(data.user.id);
+    if (profile.approvalStatus !== "approved") {
+      await client.auth.signOut();
+      throw new Error(profile.approvalStatus === "rejected"
+        ? "Your access request was rejected. Please contact the administrator."
+        : "Your access request is waiting for administrator approval.");
     }
-    return this.publicProfile(profile);
-  },
-
-  async updateProfile(id, updates) {
-    const profiles = readProfiles();
-    const index = profiles.findIndex((profile) => profile.id === id);
-    if (index < 0) throw new Error("Profile not found.");
-    const current = profiles[index];
-    const next = { ...current };
-    if (updates.name?.trim()) next.name = updates.name.trim();
-    if (updates.password) next.passwordHash = await hashPassword(updates.password, current.salt);
-    profiles[index] = next;
-    writeProfiles(profiles);
-    return this.publicProfile(next);
-  },
-
-  deleteClient(id) {
-    const profile = readProfiles().find((item) => item.id === id);
-    if (!profile || profile.role !== "client") throw new Error("Only client profiles can be deleted.");
-    writeProfiles(readProfiles().filter((item) => item.id !== id));
-  },
-
-  publicProfile({ passwordHash, salt, ...profile }) {
     return profile;
+  },
+
+  async getCurrentUser() {
+    const client = requireSupabase();
+    const { data: { session }, error } = await client.auth.getSession();
+    if (error) throw error;
+    if (!session?.user) return null;
+    const profile = await getProfile(session.user.id);
+    return profile.approvalStatus === "approved" ? profile : null;
+  },
+
+  async signOut() {
+    const { error } = await requireSupabase().auth.signOut();
+    if (error) throw error;
+  },
+
+  async getRequests() {
+    const { data, error } = await requireSupabase().from("profiles").select("*").eq("role", "user").order("created_at", { ascending: false });
+    if (error) throw error;
+    return data.map(toProfile);
+  },
+
+  async reviewRequest(id, approvalStatus) {
+    const client = requireSupabase();
+    const { data: { user }, error: userError } = await client.auth.getUser();
+    if (userError) throw userError;
+    const { error } = await client.from("profiles").update({
+      approval_status: approvalStatus,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: user.id
+    }).eq("id", id).eq("role", "user");
+    if (error) throw error;
   }
 };

@@ -1,29 +1,39 @@
-import { useState } from "react";
-import { FiPlus, FiTrash2, FiX } from "react-icons/fi";
+import { useCallback, useEffect, useState } from "react";
+import { FiCheck, FiRefreshCw, FiShield, FiUser, FiX } from "react-icons/fi";
 import { profileService } from "../services/profiles";
 
-const blankClient = { name: "", username: "", password: "" };
+const date = (value) => value ? new Date(value).toLocaleString() : "—";
 
-export default function ProfileModal({ user, onClose, onUserUpdated }) {
-  const [clients, setClients] = useState(() => profileService.getProfiles().filter((profile) => profile.role === "client"));
-  const [client, setClient] = useState(blankClient);
-  const [password, setPassword] = useState("");
-  const [selectedId, setSelectedId] = useState("");
+export default function ProfileModal({ user, initialView, onClose, onSignOut }) {
+  const isAdmin = user.role === "admin";
+  const [view, setView] = useState(initialView === "admin" && isAdmin ? "admin" : "user");
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const refreshClients = () => setClients(profileService.getProfiles().filter((profile) => profile.role === "client"));
-  const saveOwnPassword = async (event) => { event.preventDefault(); try { onUserUpdated(await profileService.updateProfile(user.id, { password })); setPassword(""); } catch (err) { setError(err.message); } };
-  const addClient = async (event) => { event.preventDefault(); try { await profileService.createProfile(client); setClient(blankClient); refreshClients(); } catch (err) { setError(err.message); } };
-  const updateClientPassword = async (event) => { event.preventDefault(); try { await profileService.updateProfile(selectedId, { password }); setPassword(""); refreshClients(); } catch (err) { setError(err.message); } };
-  const removeClient = (id) => { if (window.confirm("Delete this client profile and its local question data?")) { profileService.deleteClient(id); localStorage.removeItem(`interview-questions:${id}`); localStorage.removeItem(`interview-languages:${id}`); refreshClients(); } };
+  const loadRequests = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoading(true); setError("");
+    try { setRequests(await profileService.getRequests()); } catch (err) { setError(err.message || "Could not load requests."); } finally { setLoading(false); }
+  }, [isAdmin]);
 
-  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"><div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl p-6">
-    <div className="flex items-start justify-between gap-4 border-b pb-4"><div><h2 className="text-xl font-bold">{user.role === "admin" ? "Admin Profile" : "Client Profile"}</h2><p className="text-sm text-gray-600">Signed in as {user.name} ({user.username})</p></div><button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-800"><FiX size={22} /></button></div>
-    {error && <p className="mt-4 rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-    <form onSubmit={saveOwnPassword} className="mt-5 rounded-xl border p-4"><h3 className="font-semibold">Update {user.role === "admin" ? "admin" : "your"} password</h3><div className="mt-3 flex gap-2"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="New password" className="min-w-0 flex-1 rounded border px-3 py-2" required /><button className="rounded bg-purple-600 px-4 text-white">Update</button></div></form>
-    {user.role === "admin" && <div className="mt-6 space-y-6"><form onSubmit={addClient} className="rounded-xl border p-4"><h3 className="font-semibold">Add client profile</h3><div className="mt-3 grid gap-2 sm:grid-cols-3"><input value={client.name} onChange={(e) => setClient({ ...client, name: e.target.value })} placeholder="Client name" className="rounded border px-3 py-2" required /><input value={client.username} onChange={(e) => setClient({ ...client, username: e.target.value })} placeholder="Username" className="rounded border px-3 py-2" required /><input type="password" value={client.password} onChange={(e) => setClient({ ...client, password: e.target.value })} placeholder="Password" className="rounded border px-3 py-2" required /></div><button className="mt-3 rounded bg-green-600 px-4 py-2 text-white"><FiPlus className="mr-1 inline" />Add client</button></form>
-      <section><h3 className="font-semibold">Client details ({clients.length})</h3><div className="mt-3 space-y-2">{clients.length === 0 ? <p className="text-sm text-gray-500">No clients yet.</p> : clients.map((item) => <div key={item.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-3"><div className="mr-auto"><p className="font-medium">{item.name}</p><p className="text-sm text-gray-500">{item.username} · Created {new Date(item.createdAt).toLocaleDateString()}</p></div><button onClick={() => { setSelectedId(item.id); setPassword(""); }} className={`rounded px-3 py-1.5 text-sm ${selectedId === item.id ? "bg-purple-600 text-white" : "bg-purple-100 text-purple-700"}`}>Change password</button><button onClick={() => removeClient(item.id)} className="rounded p-2 text-red-600 hover:bg-red-50" title="Delete client"><FiTrash2 /></button></div>)}</div>
-      {selectedId && <form onSubmit={updateClientPassword} className="mt-3 flex gap-2"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="New client password" className="min-w-0 flex-1 rounded border px-3 py-2" required /><button className="rounded bg-purple-600 px-4 text-white">Save password</button></form>}</section>
-    </div>}
+  useEffect(() => { if (view === "admin") loadRequests(); }, [view, loadRequests]);
+
+  const review = async (id, status) => {
+    setError("");
+    try { await profileService.reviewRequest(id, status); await loadRequests(); } catch (err) { setError(err.message || "Could not update the request."); }
+  };
+
+  const signOut = async () => {
+    try { await profileService.signOut(); onSignOut(); } catch (err) { setError(err.message || "Could not sign out."); }
+  };
+
+  return <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"><div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+    <div className="flex items-start justify-between gap-4 border-b p-6"><div><h2 className="text-xl font-bold">Account dashboard</h2><p className="text-sm text-gray-600">{user.name} · {user.email}</p></div><button onClick={onClose} className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800" aria-label="Close"><FiX size={22} /></button></div>
+    <div className="border-b px-6 pt-4 flex gap-2"><button onClick={() => setView("user")} className={`rounded-t-lg px-4 py-2 text-sm font-medium ${view === "user" ? "bg-blue-50 text-blue-700" : "text-gray-600"}`}><FiUser className="mr-1 inline" />User profile</button>{isAdmin && <button onClick={() => setView("admin")} className={`rounded-t-lg px-4 py-2 text-sm font-medium ${view === "admin" ? "bg-blue-50 text-blue-700" : "text-gray-600"}`}><FiShield className="mr-1 inline" />Admin dashboard</button>}</div>
+    <div className="p-6">
+      {error && <p className="mb-4 rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {view === "user" ? <section className="space-y-4"><h3 className="font-semibold">Your profile</h3><dl className="grid gap-3 sm:grid-cols-2"><div className="rounded-lg bg-gray-50 p-3"><dt className="text-xs text-gray-500">Role</dt><dd className="font-medium capitalize">{user.role}</dd></div><div className="rounded-lg bg-gray-50 p-3"><dt className="text-xs text-gray-500">Selected plan</dt><dd className="font-medium capitalize">{user.plan}</dd></div><div className="rounded-lg bg-gray-50 p-3"><dt className="text-xs text-gray-500">Access status</dt><dd className="font-medium capitalize text-green-700">{user.approvalStatus}</dd></div><div className="rounded-lg bg-gray-50 p-3"><dt className="text-xs text-gray-500">Registered</dt><dd className="font-medium">{date(user.createdAt)}</dd></div></dl><p className="text-sm text-gray-500">Subscription selection is stored for now; billing is not enabled.</p><button onClick={signOut} className="rounded bg-gray-800 px-4 py-2 text-sm font-medium text-white">Sign out</button></section> : <section><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">Access requests</h3><p className="text-sm text-gray-500">Approve or reject central user requests.</p></div><button onClick={loadRequests} disabled={loading} className="rounded border px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"><FiRefreshCw className={`mr-1 inline ${loading ? "animate-spin" : ""}`} />Refresh</button></div><div className="space-y-3">{requests.length === 0 && !loading ? <p className="rounded bg-gray-50 p-4 text-sm text-gray-500">No user requests yet.</p> : requests.map((request) => <div key={request.id} className="flex flex-wrap items-center gap-3 rounded-xl border p-4"><div className="mr-auto min-w-48"><p className="font-medium">{request.name}</p><p className="text-sm text-gray-500">{request.email} · {request.plan} · requested {date(request.createdAt)}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${request.approvalStatus === "approved" ? "bg-green-100 text-green-700" : request.approvalStatus === "rejected" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>{request.approvalStatus}</span><button onClick={() => review(request.id, "approved")} disabled={request.approvalStatus === "approved"} className="rounded bg-green-600 px-3 py-1.5 text-sm text-white disabled:opacity-50"><FiCheck className="mr-1 inline" />Approve</button><button onClick={() => review(request.id, "rejected")} disabled={request.approvalStatus === "rejected"} className="rounded bg-red-600 px-3 py-1.5 text-sm text-white disabled:opacity-50">Reject</button></div>)}</div></section>}
+    </div>
   </div></div>;
 }

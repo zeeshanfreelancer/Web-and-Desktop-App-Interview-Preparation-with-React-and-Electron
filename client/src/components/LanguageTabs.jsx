@@ -12,6 +12,7 @@ import {
   FiClock
 } from "react-icons/fi";
 import QuestionBoard from "./QuestionBoard";
+import ProfileModal from "./ProfileModal";
 import { localStorageService } from "../services/localStorage";
 import { exportToPDF, exportToWord, exportToJSON, importFromJSON, importFromJSONString } from "../utils/exportImport";
 import { isElectron, openJsonFile } from "../utils/electron";
@@ -57,7 +58,7 @@ const calculateRemainingTime = (expiresAt, now) => {
   return { expired: false, years, months, days, hours, minutes };
 };
 
-function LanguageTabs({ licenseState }) {
+function LanguageTabs({ licenseState, user, onSignOut }) {
   const [languages, setLanguages] = useState(() => localStorageService.getLanguages());
   const [activeLang, setActiveLang] = useState(() => {
     const initialLanguages = localStorageService.getLanguages();
@@ -69,6 +70,8 @@ function LanguageTabs({ licenseState }) {
   const [editingLang, setEditingLang] = useState(null);
   const [editingValue, setEditingValue] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileView, setProfileView] = useState("user");
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
   const [editorSessionKey, setEditorSessionKey] = useState(0);
   const [selectedQuestionId, setSelectedQuestionId] = useState(null);
@@ -571,9 +574,16 @@ function LanguageTabs({ licenseState }) {
                   <p className="text-sm text-gray-600">No expiry date for this license.</p>
                 )}
 
-                {licenseState?.expiresLabel && (
-                  <p className="text-xs text-gray-500 mt-3">Expires on {licenseState.expiresLabel}</p>
-                )}
+               {licenseState?.expiresLabel && (
+                 <p className="text-xs text-gray-500 mt-3">Expires on {licenseState.expiresLabel}</p>
+               )}
+              </div>
+
+              <div className="mb-6 rounded-xl border border-gray-200 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div><h3 className="font-semibold">Account</h3><p className="text-sm text-gray-500">Manage your user profile{user?.role === "admin" ? " or review access requests." : "."}</p></div>
+                  <div className="flex flex-wrap gap-2"><button onClick={() => { setProfileView("user"); setProfileModalOpen(true); }} className="rounded-lg border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50">User profile</button>{user?.role === "admin" && <button onClick={() => { setProfileView("admin"); setProfileModalOpen(true); }} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Admin dashboard</button>}</div>
+                </div>
               </div>
 
               {/* Add Language Section */}
@@ -766,6 +776,8 @@ function LanguageTabs({ licenseState }) {
           </div>
         </div>
       )}
+
+      {profileModalOpen && <ProfileModal user={user} initialView={profileView} onClose={() => setProfileModalOpen(false)} onSignOut={onSignOut} />}
 
         {/* Question Board - Show empty state when no languages */}
         {languages.length === 0 ? (
