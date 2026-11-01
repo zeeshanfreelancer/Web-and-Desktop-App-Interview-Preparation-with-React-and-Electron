@@ -70,6 +70,7 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
   const [editingLang, setEditingLang] = useState(null);
   const [editingValue, setEditingValue] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [adminSettingsView, setAdminSettingsView] = useState("dashboard");
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
   const [editorSessionKey, setEditorSessionKey] = useState(0);
   const [selectedQuestionId, setSelectedQuestionId] = useState(null);
@@ -305,6 +306,7 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
 
   const openModal = () => {
     setCurrentTime(Date.now());
+    setAdminSettingsView("dashboard");
     setModalOpen(true);
   };
 
@@ -545,10 +547,13 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
               </button>
             </div>
 
+            {user?.role === "admin" && <div className="border-b bg-gray-50 px-6 py-3"><div className="flex flex-wrap gap-2"><button onClick={() => setAdminSettingsView("dashboard")} className={`rounded-lg px-4 py-2 text-sm font-medium ${adminSettingsView === "dashboard" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-white"}`}>Admin dashboard</button><button onClick={() => setAdminSettingsView("workspace")} className={`rounded-lg px-4 py-2 text-sm font-medium ${adminSettingsView === "workspace" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-white"}`}>Workspace settings</button></div></div>}
+
             {/* Account and workspace are visible together on one full-size page. */}
-            <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(360px,0.9fr)_minmax(0,1.35fr)]">
-              <aside className="overflow-y-auto border-b border-gray-200 bg-slate-50 p-6 lg:border-b-0 lg:border-r"><AccountDashboard user={user} onUserUpdated={onUserUpdated} onSignOut={onSignOut} /></aside>
-              <section className="overflow-y-auto p-6">
+            <div className={user?.role === "admin" ? "min-h-0 flex-1 overflow-y-auto p-6" : "grid min-h-0 flex-1 lg:grid-cols-2"}>
+              {user?.role !== "admin" && <aside className="overflow-y-auto border-b border-gray-200 bg-slate-50 p-6 lg:border-b-0 lg:border-r"><AccountDashboard user={user} onUserUpdated={onUserUpdated} onSignOut={onSignOut} /></aside>}
+              {user?.role === "admin" && adminSettingsView === "dashboard" && <AccountDashboard user={user} onUserUpdated={onUserUpdated} onSignOut={onSignOut} />}
+              {(user?.role !== "admin" || adminSettingsView === "workspace") && <section className="overflow-y-auto p-6">
               {/* License Status */}
               <div className="mb-6 p-4 rounded-xl bg-purple-50 border border-purple-100">
                 <div className="flex items-center gap-2 text-purple-700 font-semibold mb-2">
@@ -768,7 +773,7 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
                   )}
                 </div>
               </div>
-              </section>
+              </section>}
             </div>
 
           </div>
