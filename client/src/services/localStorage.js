@@ -1,5 +1,7 @@
 const STORAGE_KEY = 'interview-questions';
 const LANGUAGES_KEY = 'interview-languages';
+let activeProfileId = null;
+const getStorageKey = (key) => activeProfileId ? `${key}:${activeProfileId}` : key;
 
 let idCounter = 0;
 
@@ -32,16 +34,27 @@ const ensureUniqueQuestionIds = (questions) => {
 };
 
 export const localStorageService = {
+  setActiveProfile(id, migrateLegacyData = false) {
+    activeProfileId = id;
+    if (migrateLegacyData) {
+      for (const key of [STORAGE_KEY, LANGUAGES_KEY]) {
+        const profileKey = getStorageKey(key);
+        if (!localStorage.getItem(profileKey) && localStorage.getItem(key)) {
+          localStorage.setItem(profileKey, localStorage.getItem(key));
+        }
+      }
+    }
+  },
   // Questions
   getQuestions(language) {
     try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
       const questions = data[language] || [];
       const { questions: uniqueQuestions, changed } = ensureUniqueQuestionIds(questions);
 
       if (changed) {
         data[language] = uniqueQuestions;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
       }
 
       return uniqueQuestions;
@@ -53,7 +66,7 @@ export const localStorageService = {
 
   createQuestion(questionData) {
     try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
       if (!data[questionData.language]) {
         data[questionData.language] = [];
       }
@@ -66,7 +79,7 @@ export const localStorageService = {
       };
       
       data[questionData.language].push(newQuestion);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
       return newQuestion;
     } catch (error) {
       console.error('Error creating question:', error);
@@ -76,7 +89,7 @@ export const localStorageService = {
 
   updateQuestion(id, questionData) {
     try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
       
       for (const language in data) {
         const questionIndex = data[language].findIndex(q => q._id === id);
@@ -86,7 +99,7 @@ export const localStorageService = {
             ...questionData,
             updatedAt: new Date().toISOString()
           };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
           return data[language][questionIndex];
         }
       }
@@ -99,13 +112,13 @@ export const localStorageService = {
 
   deleteQuestion(id) {
     try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
       
       for (const language in data) {
         const questionIndex = data[language].findIndex(q => q._id === id);
         if (questionIndex !== -1) {
           data[language].splice(questionIndex, 1);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
           return true;
         }
       }
@@ -118,7 +131,7 @@ export const localStorageService = {
 
   reorderQuestions(language, fromIndex, toIndex) {
     try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
       const list = [...(data[language] || [])];
 
       if (
@@ -134,7 +147,7 @@ export const localStorageService = {
       const [moved] = list.splice(fromIndex, 1);
       list.splice(toIndex, 0, moved);
       data[language] = list;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
       return list;
     } catch (error) {
       console.error('Error reordering questions:', error);
@@ -144,7 +157,7 @@ export const localStorageService = {
 
   moveQuestion(id, targetLanguage) {
     try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
       let question = null;
       let sourceLanguage = null;
 
@@ -167,7 +180,7 @@ export const localStorageService = {
           data[targetLanguage] = [];
         }
         data[targetLanguage].push(question);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
         return question;
       }
 
@@ -182,7 +195,7 @@ export const localStorageService = {
       };
 
       data[targetLanguage].push(movedQuestion);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
       return movedQuestion;
     } catch (error) {
       console.error('Error moving question:', error);
@@ -206,7 +219,7 @@ export const localStorageService = {
   // Languages
   getLanguages() {
     try {
-      const languages = JSON.parse(localStorage.getItem(LANGUAGES_KEY) || '[]');
+      const languages = JSON.parse(localStorage.getItem(getStorageKey(LANGUAGES_KEY)) || '[]');
       return languages;
     } catch (error) {
       console.error('Error reading languages:', error);
@@ -216,7 +229,7 @@ export const localStorageService = {
 
   saveLanguages(languages) {
     try {
-      localStorage.setItem(LANGUAGES_KEY, JSON.stringify(languages));
+      localStorage.setItem(getStorageKey(LANGUAGES_KEY), JSON.stringify(languages));
     } catch (error) {
       console.error('Error saving languages:', error);
     }
@@ -251,9 +264,9 @@ export const localStorageService = {
       const languages = this.getLanguages().filter(lang => lang !== language);
       this.saveLanguages(languages);
 
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
       delete data[language];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
 
       return languages;
     } catch (error) {
@@ -272,11 +285,11 @@ export const localStorageService = {
         throw new Error('Language already exists');
       }
 
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
       if (data[oldName]) {
         data[trimmed] = data[oldName].map(q => ({ ...q, language: trimmed }));
         delete data[oldName];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
       }
 
       this.saveLanguages(languages.map(lang => (lang === oldName ? trimmed : lang)));
@@ -292,7 +305,7 @@ export const localStorageService = {
       let totalImported = 0;
       const languages = this.getLanguages();
       const updatedLanguages = [...languages];
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
 
       const importForLanguage = (language, questions) => {
         if (!updatedLanguages.includes(language)) {
@@ -328,7 +341,7 @@ export const localStorageService = {
         importForLanguage(parsed.targetLanguage, parsed.questions);
       }
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
       this.saveLanguages(updatedLanguages);
       return { totalImported, languages: updatedLanguages };
     } catch (error) {
@@ -339,7 +352,7 @@ export const localStorageService = {
 
   getStorageStatus() {
     try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
       const totalQuestions = Object.values(data).reduce((sum, questions) => sum + questions.length, 0);
       const questionsByLanguage = {};
       
