@@ -12,7 +12,7 @@ import {
   FiClock
 } from "react-icons/fi";
 import QuestionBoard from "./QuestionBoard";
-import ProfileModal from "./ProfileModal";
+import AccountDashboard from "./AccountDashboard";
 import { localStorageService } from "../services/localStorage";
 import { exportToPDF, exportToWord, exportToJSON, importFromJSON, importFromJSONString } from "../utils/exportImport";
 import { isElectron, openJsonFile } from "../utils/electron";
@@ -70,8 +70,7 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
   const [editingLang, setEditingLang] = useState(null);
   const [editingValue, setEditingValue] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [profileView, setProfileView] = useState("user");
+  const [settingsView, setSettingsView] = useState("dashboard");
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
   const [editorSessionKey, setEditorSessionKey] = useState(0);
   const [selectedQuestionId, setSelectedQuestionId] = useState(null);
@@ -307,6 +306,7 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
 
   const openModal = () => {
     setCurrentTime(Date.now());
+    setSettingsView("dashboard");
     setModalOpen(true);
   };
 
@@ -533,11 +533,11 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div
             ref={modalRef}
-            className="bg-white rounded-2xl shadow-2xl max-w-xl w-full mx-4 max-h-[80vh] flex flex-col"
+            className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full mx-4 max-h-[88vh] flex flex-col"
           >
             {/* Modal Header - Fixed, non-scrollable */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
-              <h2 className="text-xl font-bold text-gray-800">Settings</h2>
+              <div><h2 className="text-xl font-bold text-gray-800">Settings & Account</h2><p className="text-sm text-gray-500">Your workspace, profile, plan and access controls in one place.</p></div>
               <button
                 onClick={closeModal}
                 className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
@@ -547,8 +547,11 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
               </button>
             </div>
 
+            <div className="border-b bg-gray-50 px-6 py-3"><div className="flex flex-wrap gap-2"><button onClick={() => setSettingsView("dashboard")} className={`rounded-lg px-4 py-2 text-sm font-medium ${settingsView === "dashboard" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-white"}`}>Dashboard</button><button onClick={() => setSettingsView("workspace")} className={`rounded-lg px-4 py-2 text-sm font-medium ${settingsView === "workspace" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-white"}`}>Workspace settings</button></div></div>
+
             {/* Modal Content - Scrollable */}
             <div className="flex-1 overflow-y-auto p-6">
+              {settingsView === "dashboard" ? <AccountDashboard user={user} onUserUpdated={onUserUpdated} onSignOut={onSignOut} /> : <>
               {/* License Status */}
               <div className="mb-6 p-4 rounded-xl bg-purple-50 border border-purple-100">
                 <div className="flex items-center gap-2 text-purple-700 font-semibold mb-2">
@@ -584,13 +587,6 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
                )}
               </div>
 
-              <div className="mb-6 rounded-xl border border-gray-200 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div><h3 className="font-semibold">Account</h3><p className="text-sm text-gray-500">Manage your user profile{user?.role === "admin" ? " or review access requests." : "."}</p></div>
-                  <div className="flex flex-wrap gap-2"><button onClick={() => { setProfileView("user"); setProfileModalOpen(true); }} className="rounded-lg border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50">User profile</button>{user?.role === "admin" && <button onClick={() => { setProfileView("admin"); setProfileModalOpen(true); }} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Admin dashboard</button>}</div>
-                </div>
-              </div>
-
               {/* Add Language Section */}
               <div className="mb-6">
                 <div className="flex gap-3">
@@ -610,6 +606,7 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
                   </button>
                 </div>
               </div>
+              </>}
 
               {/* Languages List */}
               <div className="space-y-3">
@@ -781,8 +778,6 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
           </div>
         </div>
       )}
-
-      {profileModalOpen && <ProfileModal user={user} initialView={profileView} onClose={() => setProfileModalOpen(false)} onUserUpdated={onUserUpdated} onSignOut={onSignOut} />}
 
         {/* Question Board - Show empty state when no languages */}
         {languages.length === 0 ? (
