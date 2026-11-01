@@ -3,15 +3,16 @@
 
 create type public.account_role as enum ('admin', 'user');
 create type public.approval_state as enum ('pending', 'approved', 'rejected');
-create type public.subscription_plan as enum ('monthly', 'yearly');
+create type public.subscription_plan as enum ('free', 'monthly', 'yearly');
 
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null,
   email text not null unique,
   role public.account_role not null default 'user',
-  plan public.subscription_plan not null default 'monthly',
-  approval_status public.approval_state not null default 'pending',
+  plan public.subscription_plan not null default 'free',
+  requested_plan public.subscription_plan,
+  approval_status public.approval_state not null default 'approved',
   created_at timestamptz not null default now(),
   reviewed_at timestamptz,
   reviewed_by uuid references auth.users(id)
@@ -26,12 +27,13 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name, email, plan)
+  insert into public.profiles (id, full_name, email, plan, approval_status)
   values (
     new.id,
     coalesce(nullif(new.raw_user_meta_data ->> 'full_name', ''), split_part(new.email, '@', 1)),
     new.email,
-    coalesce((new.raw_user_meta_data ->> 'plan')::public.subscription_plan, 'monthly')
+    coalesce((new.raw_user_meta_data ->> 'plan')::public.subscription_plan, 'free'),
+    case when coalesce(new.raw_user_meta_data ->> 'plan', 'free') = 'free' then 'approved'::public.approval_state else 'pending'::public.approval_state end
   );
   return new;
 end;
@@ -58,6 +60,11 @@ create policy "The central admin can review user requests"
   on public.profiles for update to authenticated
   using (public.is_admin() and role = 'user')
   with check (public.is_admin() and role = 'user');
+
+create policy "Free users can request an upgrade"
+  on public.profiles for update to authenticated
+  using (id = auth.uid() and role = 'user')
+  with check (id = auth.uid() and role = 'user' and plan = 'free' and approval_status = 'approved' and requested_plan in ('monthly', 'yearly'));
 
 -- Bootstrap the one admin after that person has registered in the app.
 -- Replace the email and run this once:

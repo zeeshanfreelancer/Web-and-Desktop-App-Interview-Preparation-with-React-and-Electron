@@ -58,7 +58,7 @@ const calculateRemainingTime = (expiresAt, now) => {
   return { expired: false, years, months, days, hours, minutes };
 };
 
-function LanguageTabs({ licenseState, user, onSignOut }) {
+function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
   const [languages, setLanguages] = useState(() => localStorageService.getLanguages());
   const [activeLang, setActiveLang] = useState(() => {
     const initialLanguages = localStorageService.getLanguages();
@@ -92,6 +92,11 @@ function LanguageTabs({ licenseState, user, onSignOut }) {
 
   const addLanguage = () => {
     if (!newLanguage.trim() || languages.includes(newLanguage.trim())) return;
+    if (!localStorageService.canAddLanguage()) {
+      const limits = localStorageService.getLimits();
+      alert(`Free accounts can add up to ${limits.languages} languages. Upgrade your plan for unlimited languages.`);
+      return;
+    }
 
     const newLanguages = [...languages, newLanguage.trim()];
     setLanguages(newLanguages);
@@ -777,7 +782,7 @@ function LanguageTabs({ licenseState, user, onSignOut }) {
         </div>
       )}
 
-      {profileModalOpen && <ProfileModal user={user} initialView={profileView} onClose={() => setProfileModalOpen(false)} onSignOut={onSignOut} />}
+      {profileModalOpen && <ProfileModal user={user} initialView={profileView} onClose={() => setProfileModalOpen(false)} onUserUpdated={onUserUpdated} onSignOut={onSignOut} />}
 
         {/* Question Board - Show empty state when no languages */}
         {languages.length === 0 ? (

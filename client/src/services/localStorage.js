@@ -1,7 +1,11 @@
 const STORAGE_KEY = 'interview-questions';
 const LANGUAGES_KEY = 'interview-languages';
 let activeProfileId = null;
+let activePlan = "free";
 const getStorageKey = (key) => activeProfileId ? `${key}:${activeProfileId}` : key;
+const FREE_LANGUAGE_LIMIT = 2;
+const FREE_QUESTION_LIMIT = 10;
+const isFreePlan = () => activePlan === "free";
 
 let idCounter = 0;
 
@@ -34,8 +38,9 @@ const ensureUniqueQuestionIds = (questions) => {
 };
 
 export const localStorageService = {
-  setActiveProfile(id, migrateLegacyData = false) {
+  setActiveProfile(id, migrateLegacyData = false, plan = "free") {
     activeProfileId = id;
+    activePlan = plan;
     if (migrateLegacyData) {
       for (const key of [STORAGE_KEY, LANGUAGES_KEY]) {
         const profileKey = getStorageKey(key);
@@ -44,6 +49,14 @@ export const localStorageService = {
         }
       }
     }
+  },
+  getLimits() {
+    return isFreePlan()
+      ? { isFree: true, languages: FREE_LANGUAGE_LIMIT, questionsPerLanguage: FREE_QUESTION_LIMIT }
+      : { isFree: false, languages: null, questionsPerLanguage: null };
+  },
+  canAddLanguage() {
+    return !isFreePlan() || this.getLanguages().length < FREE_LANGUAGE_LIMIT;
   },
   // Questions
   getQuestions(language) {
@@ -69,6 +82,9 @@ export const localStorageService = {
       const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
       if (!data[questionData.language]) {
         data[questionData.language] = [];
+      }
+      if (isFreePlan() && data[questionData.language].length >= FREE_QUESTION_LIMIT) {
+        throw new Error(`Free accounts can add up to ${FREE_QUESTION_LIMIT} questions per language. Upgrade your plan for unlimited questions.`);
       }
       
       const newQuestion = {
@@ -182,6 +198,10 @@ export const localStorageService = {
         data[targetLanguage].push(question);
         localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
         return question;
+      }
+
+      if (isFreePlan() && (data[targetLanguage] || []).length >= FREE_QUESTION_LIMIT) {
+        throw new Error(`Free accounts can keep up to ${FREE_QUESTION_LIMIT} questions per language. Upgrade your plan to move more questions.`);
       }
 
       if (!data[targetLanguage]) {
@@ -308,11 +328,17 @@ export const localStorageService = {
       const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
 
       const importForLanguage = (language, questions) => {
+        if (isFreePlan() && !updatedLanguages.includes(language) && updatedLanguages.length >= FREE_LANGUAGE_LIMIT) {
+          throw new Error(`Free accounts can add up to ${FREE_LANGUAGE_LIMIT} languages. Upgrade your plan to import more.`);
+        }
         if (!updatedLanguages.includes(language)) {
           updatedLanguages.push(language);
         }
         if (!data[language]) {
           data[language] = [];
+        }
+        if (isFreePlan() && data[language].length + questions.length > FREE_QUESTION_LIMIT) {
+          throw new Error(`Free accounts can keep up to ${FREE_QUESTION_LIMIT} questions per language. Upgrade your plan to import more.`);
         }
 
         for (const q of questions) {

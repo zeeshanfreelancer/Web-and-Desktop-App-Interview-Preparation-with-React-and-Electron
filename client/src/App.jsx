@@ -16,7 +16,10 @@ function App() {
   useEffect(() => {
     if (!profileService.isConfigured()) return;
     profileService.getCurrentUser()
-      .then((user) => setProfileState({ loading: false, user }))
+      .then((user) => {
+        if (user) localStorageService.setActiveProfile(user.id, false, user.plan);
+        setProfileState({ loading: false, user });
+      })
       .catch(() => setProfileState({ loading: false, user: null }));
   }, []);
 
@@ -85,7 +88,7 @@ function App() {
 
   if (!profileState.user) {
     return <ProfileAccess onSignedIn={(user) => {
-      localStorageService.setActiveProfile(user.id);
+      localStorageService.setActiveProfile(user.id, false, user.plan);
       setProfileState({ loading: false, user });
     }} />;
   }
@@ -95,6 +98,10 @@ function App() {
       <LanguageTabs
         licenseState={licenseState}
         user={profileState.user}
+        onUserUpdated={(user) => {
+          localStorageService.setActiveProfile(user.id, false, user.plan);
+          setProfileState({ loading: false, user });
+        }}
         onSignOut={() => setProfileState({ loading: false, user: null })}
       />
       <UpdateBanner />

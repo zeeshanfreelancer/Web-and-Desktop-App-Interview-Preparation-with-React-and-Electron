@@ -11,6 +11,7 @@ const toProfile = (profile) => profile && ({
   email: profile.email,
   role: profile.role,
   plan: profile.plan,
+  requestedPlan: profile.requested_plan,
   approvalStatus: profile.approval_status,
   createdAt: profile.created_at,
   reviewedAt: profile.reviewed_at
@@ -50,6 +51,7 @@ export const profileService = {
         ? "Your access request was rejected. Please contact the administrator."
         : "Your access request is waiting for administrator approval.");
     }
+    localStorage.setItem("interview-last-account-email", profile.email);
     return profile;
   },
 
@@ -77,11 +79,26 @@ export const profileService = {
     const client = requireSupabase();
     const { data: { user }, error: userError } = await client.auth.getUser();
     if (userError) throw userError;
+    const { data: request, error: requestError } = await client.from("profiles").select("plan, requested_plan, approval_status").eq("id", id).single();
+    if (requestError) throw requestError;
+    const isUpgrade = request.requested_plan && request.approval_status === "approved";
     const { error } = await client.from("profiles").update({
       approval_status: approvalStatus,
+      plan: approvalStatus === "approved" && isUpgrade ? request.requested_plan : request.plan,
+      requested_plan: isUpgrade ? null : request.requested_plan,
       reviewed_at: new Date().toISOString(),
       reviewed_by: user.id
     }).eq("id", id).eq("role", "user");
     if (error) throw error;
+  },
+
+  async requestUpgrade(plan) {
+    if (!['monthly', 'yearly'].includes(plan)) throw new Error("Choose a monthly or yearly plan.");
+    const client = requireSupabase();
+    const { data: { user }, error: userError } = await client.auth.getUser();
+    if (userError) throw userError;
+    const { data, error } = await client.from("profiles").update({ requested_plan: plan }).eq("id", user.id).select("*").single();
+    if (error) throw error;
+    return toProfile(data);
   }
 };
