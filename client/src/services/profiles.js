@@ -15,6 +15,8 @@ const toProfile = (profile) => profile && ({
   approvalStatus: profile.approval_status,
   isBlocked: profile.is_blocked,
   lastSeenAt: profile.last_seen_at,
+  subscriptionStartedAt: profile.subscription_started_at,
+  subscriptionExpiresAt: profile.subscription_expires_at,
   createdAt: profile.created_at,
   reviewedAt: profile.reviewed_at
 });
@@ -25,6 +27,11 @@ const getProfile = async (id) => {
   if (error) throw error;
   return toProfile(data);
 };
+
+const subscriptionExpired = (profile) =>
+  ["monthly", "yearly"].includes(profile.plan)
+  && Boolean(profile.subscriptionExpiresAt)
+  && new Date(profile.subscriptionExpiresAt).getTime() <= Date.now();
 
 export const profileService = {
   isConfigured: () => Boolean(supabase),
@@ -47,10 +54,12 @@ export const profileService = {
     const { data, error } = await client.auth.signInWithPassword({ email: email.trim(), password });
     if (error) throw error;
     const profile = await getProfile(data.user.id);
-    if (profile.approvalStatus !== "approved" || profile.isBlocked) {
+    if (profile.approvalStatus !== "approved" || profile.isBlocked || subscriptionExpired(profile)) {
       await client.auth.signOut();
       throw new Error(profile.isBlocked
         ? "Your account has been blocked. Please contact the administrator."
+        : subscriptionExpired(profile)
+        ? "Your subscription has expired. Please contact the administrator to renew it."
         : profile.approvalStatus === "rejected"
         ? "Your access request was rejected. Please contact the administrator."
         : "Your access request is waiting for administrator approval.");
@@ -66,7 +75,7 @@ export const profileService = {
     if (error) throw error;
     if (!session?.user) return null;
     const profile = await getProfile(session.user.id);
-    if (profile.approvalStatus !== "approved" || profile.isBlocked) return null;
+    if (profile.approvalStatus !== "approved" || profile.isBlocked || subscriptionExpired(profile)) return null;
     await this.touchLastSeen();
     return profile;
   },
@@ -84,18 +93,7 @@ export const profileService = {
 
   async reviewRequest(id, approvalStatus) {
     const client = requireSupabase();
-    const { data: { user }, error: userError } = await client.auth.getUser();
-    if (userError) throw userError;
-    const { data: request, error: requestError } = await client.from("profiles").select("plan, requested_plan, approval_status").eq("id", id).single();
-    if (requestError) throw requestError;
-    const isUpgrade = request.requested_plan && request.approval_status === "approved";
-    const { error } = await client.from("profiles").update({
-      approval_status: approvalStatus,
-      plan: approvalStatus === "approved" && isUpgrade ? request.requested_plan : request.plan,
-      requested_plan: isUpgrade ? null : request.requested_plan,
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: user.id
-    }).eq("id", id).eq("role", "user");
+    const { error } = await client.rpc("admin_review_user", { target_user_id: id, decision: approvalStatus });
     if (error) throw error;
   },
 

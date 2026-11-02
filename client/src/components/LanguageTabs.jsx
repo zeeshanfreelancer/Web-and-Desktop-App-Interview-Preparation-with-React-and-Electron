@@ -58,7 +58,7 @@ const calculateRemainingTime = (expiresAt, now) => {
   return { expired: false, years, months, days, hours, minutes };
 };
 
-function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
+function LanguageTabs({ user, onUserUpdated, onSignOut }) {
   const [languages, setLanguages] = useState(() => localStorageService.getLanguages());
   const [activeLang, setActiveLang] = useState(() => {
     const initialLanguages = localStorageService.getLanguages();
@@ -87,7 +87,7 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
   const [dragOverLangIndex, setDragOverLangIndex] = useState(null);
 
   const canReorderLanguages = languages.length > 1 && editingLang === null;
-  const remainingLicenseTime = calculateRemainingTime(licenseState?.expiresAt, currentTime);
+  const remainingLicenseTime = calculateRemainingTime(user?.subscriptionExpiresAt, currentTime);
 
   const addLanguage = () => {
     if (!newLanguage.trim() || languages.includes(newLanguage.trim())) return;
@@ -379,14 +379,14 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
   }, [activeLang, languages]);
 
   useEffect(() => {
-    if (!modalOpen || !licenseState?.expiresAt) return undefined;
+    if (!modalOpen || !user?.subscriptionExpiresAt) return undefined;
 
     const interval = setInterval(() => {
       setCurrentTime(Date.now());
     }, 60_000);
 
     return () => clearInterval(interval);
-  }, [modalOpen, licenseState?.expiresAt]);
+  }, [modalOpen, user?.subscriptionExpiresAt]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -561,7 +561,7 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
                   <span>License Time Remaining</span>
                 </div>
 
-                {licenseState?.expiresAt ? (
+                {user?.subscriptionExpiresAt ? (
                   remainingLicenseTime?.expired ? (
                     <p className="text-sm text-red-600 font-medium">Expired</p>
                   ) : (
@@ -584,8 +584,8 @@ function LanguageTabs({ licenseState, user, onUserUpdated, onSignOut }) {
                   <p className="text-sm text-gray-600">No expiry date for this license.</p>
                 )}
 
-               {licenseState?.expiresLabel && (
-                 <p className="text-xs text-gray-500 mt-3">Expires on {licenseState.expiresLabel}</p>
+               {user?.subscriptionExpiresAt && (
+                 <p className="text-xs text-gray-500 mt-3">Expires on {new Date(user.subscriptionExpiresAt).toLocaleString()}</p>
                )}
               </div>
 
