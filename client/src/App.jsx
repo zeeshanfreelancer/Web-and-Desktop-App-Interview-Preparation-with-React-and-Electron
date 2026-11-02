@@ -13,6 +13,7 @@ function App() {
     ? { loading: true, status: "licensed" }
     : { loading: false, status: "licensed" });
   const [profileState, setProfileState] = useState(() => ({ loading: profileService.isConfigured(), user: null }));
+  const activeUserId = profileState.user?.id;
 
   useEffect(() => {
     if (!profileService.isConfigured()) return;
@@ -32,6 +33,24 @@ function App() {
     window.addEventListener("online", syncWhenOnline);
     return () => window.removeEventListener("online", syncWhenOnline);
   }, []);
+
+  useEffect(() => {
+    if (!activeUserId) return undefined;
+
+    const heartbeat = () => {
+      if (document.visibilityState === "visible") {
+        profileService.touchLastSeen().catch(() => {});
+      }
+    };
+
+    heartbeat();
+    const interval = window.setInterval(heartbeat, 30_000);
+    window.addEventListener("visibilitychange", heartbeat);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("visibilitychange", heartbeat);
+    };
+  }, [activeUserId]);
 
   useEffect(() => {
     if (!isElectron()) return;
