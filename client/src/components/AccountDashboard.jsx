@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FiCheck, FiClock, FiCreditCard, FiRefreshCw, FiShield, FiUsers } from "react-icons/fi";
 import { profileService } from "../services/profiles";
+import { workspaceSync } from "../services/workspaceSync";
 
 const formatDate = (value) => value ? new Date(value).toLocaleString() : "Not yet";
 
@@ -35,7 +36,7 @@ export default function AccountDashboard({ user, onUserUpdated, onSignOut }) {
   };
 
   const signOut = async () => {
-    try { await profileService.signOut(); onSignOut(); } catch (err) { setError(err.message || "Could not sign out."); }
+    try { await workspaceSync.syncNow(); await profileService.signOut(); onSignOut(); } catch (err) { setError(err.message || "Could not sign out."); }
   };
 
   return <div className="space-y-6">

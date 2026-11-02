@@ -66,6 +66,19 @@ create policy "Free users can request an upgrade"
   using (id = auth.uid() and role = 'user')
   with check (id = auth.uid() and role = 'user' and plan = 'free' and approval_status = 'approved' and requested_plan in ('monthly', 'yearly'));
 
+create table public.user_workspaces (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  languages jsonb not null default '[]'::jsonb,
+  questions jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_workspaces enable row level security;
+
+create policy "Users can read their own workspace" on public.user_workspaces for select to authenticated using (user_id = auth.uid());
+create policy "Users can create their own workspace" on public.user_workspaces for insert to authenticated with check (user_id = auth.uid());
+create policy "Users can update their own workspace" on public.user_workspaces for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
 -- Bootstrap the one admin after that person has registered in the app.
 -- Replace the email and run this once:
 -- update public.profiles set role = 'admin', approval_status = 'approved', reviewed_at = now()

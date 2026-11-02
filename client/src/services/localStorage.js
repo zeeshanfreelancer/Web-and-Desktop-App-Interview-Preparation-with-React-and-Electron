@@ -2,10 +2,20 @@ const STORAGE_KEY = 'interview-questions';
 const LANGUAGES_KEY = 'interview-languages';
 let activeProfileId = null;
 let activePlan = "free";
+let syncHandler = null;
 const getStorageKey = (key) => activeProfileId ? `${key}:${activeProfileId}` : key;
 const FREE_LANGUAGE_LIMIT = 2;
 const FREE_QUESTION_LIMIT = 10;
 const isFreePlan = () => activePlan === "free";
+const notifySync = () => syncHandler?.();
+const saveQuestionData = (data, notify = true) => {
+  localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
+  if (notify) notifySync();
+};
+const saveLanguageData = (languages, notify = true) => {
+  localStorage.setItem(getStorageKey(LANGUAGES_KEY), JSON.stringify(languages));
+  if (notify) notifySync();
+};
 
 let idCounter = 0;
 
@@ -50,6 +60,19 @@ export const localStorageService = {
       }
     }
   },
+  setSyncHandler(handler) {
+    syncHandler = handler;
+  },
+  getWorkspaceSnapshot() {
+    return {
+      languages: this.getLanguages(),
+      questions: JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || "{}")
+    };
+  },
+  replaceWorkspaceSnapshot({ languages, questions }) {
+    saveQuestionData(questions || {}, false);
+    saveLanguageData(languages || [], false);
+  },
   getLimits() {
     return isFreePlan()
       ? { isFree: true, languages: FREE_LANGUAGE_LIMIT, questionsPerLanguage: FREE_QUESTION_LIMIT }
@@ -67,7 +90,7 @@ export const localStorageService = {
 
       if (changed) {
         data[language] = uniqueQuestions;
-        localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
+        saveQuestionData(data);
       }
 
       return uniqueQuestions;
@@ -95,7 +118,7 @@ export const localStorageService = {
       };
       
       data[questionData.language].push(newQuestion);
-      localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
+      saveQuestionData(data);
       return newQuestion;
     } catch (error) {
       console.error('Error creating question:', error);
@@ -115,7 +138,7 @@ export const localStorageService = {
             ...questionData,
             updatedAt: new Date().toISOString()
           };
-          localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
+          saveQuestionData(data);
           return data[language][questionIndex];
         }
       }
@@ -134,7 +157,7 @@ export const localStorageService = {
         const questionIndex = data[language].findIndex(q => q._id === id);
         if (questionIndex !== -1) {
           data[language].splice(questionIndex, 1);
-          localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
+          saveQuestionData(data);
           return true;
         }
       }
@@ -163,7 +186,7 @@ export const localStorageService = {
       const [moved] = list.splice(fromIndex, 1);
       list.splice(toIndex, 0, moved);
       data[language] = list;
-      localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
+      saveQuestionData(data);
       return list;
     } catch (error) {
       console.error('Error reordering questions:', error);
@@ -196,7 +219,7 @@ export const localStorageService = {
           data[targetLanguage] = [];
         }
         data[targetLanguage].push(question);
-        localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
+        saveQuestionData(data);
         return question;
       }
 
@@ -215,7 +238,7 @@ export const localStorageService = {
       };
 
       data[targetLanguage].push(movedQuestion);
-      localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
+      saveQuestionData(data);
       return movedQuestion;
     } catch (error) {
       console.error('Error moving question:', error);
@@ -249,7 +272,7 @@ export const localStorageService = {
 
   saveLanguages(languages) {
     try {
-      localStorage.setItem(getStorageKey(LANGUAGES_KEY), JSON.stringify(languages));
+      saveLanguageData(languages);
     } catch (error) {
       console.error('Error saving languages:', error);
     }
@@ -286,7 +309,7 @@ export const localStorageService = {
 
       const data = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || '{}');
       delete data[language];
-      localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
+      saveQuestionData(data);
 
       return languages;
     } catch (error) {
@@ -309,7 +332,7 @@ export const localStorageService = {
       if (data[oldName]) {
         data[trimmed] = data[oldName].map(q => ({ ...q, language: trimmed }));
         delete data[oldName];
-        localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
+        saveQuestionData(data);
       }
 
       this.saveLanguages(languages.map(lang => (lang === oldName ? trimmed : lang)));
@@ -367,7 +390,7 @@ export const localStorageService = {
         importForLanguage(parsed.targetLanguage, parsed.questions);
       }
 
-      localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(data));
+      saveQuestionData(data);
       this.saveLanguages(updatedLanguages);
       return { totalImported, languages: updatedLanguages };
     } catch (error) {

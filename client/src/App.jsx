@@ -6,6 +6,7 @@ import ProfileAccess from "./components/ProfileAccess";
 import { getLicenseStatus, isElectron } from "./utils/electron";
 import { profileService } from "./services/profiles";
 import { localStorageService } from "./services/localStorage";
+import { workspaceSync } from "./services/workspaceSync";
 
 function App() {
   const [licenseState, setLicenseState] = useState(() => isElectron()
@@ -16,11 +17,20 @@ function App() {
   useEffect(() => {
     if (!profileService.isConfigured()) return;
     profileService.getCurrentUser()
-      .then((user) => {
-        if (user) localStorageService.setActiveProfile(user.id, false, user.plan);
+      .then(async (user) => {
+        if (user) {
+          localStorageService.setActiveProfile(user.id, false, user.plan);
+          await workspaceSync.start(user.id);
+        }
         setProfileState({ loading: false, user });
       })
       .catch(() => setProfileState({ loading: false, user: null }));
+  }, []);
+
+  useEffect(() => {
+    const syncWhenOnline = () => workspaceSync.syncNow();
+    window.addEventListener("online", syncWhenOnline);
+    return () => window.removeEventListener("online", syncWhenOnline);
   }, []);
 
   useEffect(() => {
@@ -87,8 +97,9 @@ function App() {
   }
 
   if (!profileState.user) {
-    return <ProfileAccess onSignedIn={(user) => {
+    return <ProfileAccess onSignedIn={async (user) => {
       localStorageService.setActiveProfile(user.id, false, user.plan);
+      await workspaceSync.start(user.id);
       setProfileState({ loading: false, user });
     }} />;
   }
@@ -102,7 +113,7 @@ function App() {
           localStorageService.setActiveProfile(user.id, false, user.plan);
           setProfileState({ loading: false, user });
         }}
-        onSignOut={() => setProfileState({ loading: false, user: null })}
+        onSignOut={() => { workspaceSync.stop(); setProfileState({ loading: false, user: null }); }}
       />
       <UpdateBanner />
     </div>
