@@ -4,6 +4,18 @@ alter table public.profiles add column if not exists last_seen_at timestamptz;
 alter table public.profiles add column if not exists subscription_started_at timestamptz;
 alter table public.profiles add column if not exists subscription_expires_at timestamptz;
 
+-- Give paid accounts created before subscription tracking a fresh initial period.
+-- This only affects rows that do not already have an expiry date.
+update public.profiles
+set
+  subscription_started_at = coalesce(subscription_started_at, now()),
+  subscription_expires_at = now() + case
+    when plan = 'monthly' then interval '1 month'
+    when plan = 'yearly' then interval '1 year'
+  end
+where plan in ('monthly', 'yearly')
+  and subscription_expires_at is null;
+
 create or replace function public.touch_last_seen()
 returns void language plpgsql security definer set search_path = public as $$
 begin

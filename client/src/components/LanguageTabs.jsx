@@ -581,7 +581,7 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
                     </div>
                   )
                 ) : (
-                  <p className="text-sm text-gray-600">No expiry date for this license.</p>
+                  <p className="text-sm text-gray-600">{user?.plan === "free" ? "Free plan: no subscription expiry." : "Subscription expiry has not been set yet."}</p>
                 )}
 
                {user?.subscriptionExpiresAt && (
