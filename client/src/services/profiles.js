@@ -13,6 +13,8 @@ const toProfile = (profile) => profile && ({
   plan: profile.plan,
   requestedPlan: profile.requested_plan,
   approvalStatus: profile.approval_status,
+  isBlocked: profile.is_blocked,
+  lastSeenAt: profile.last_seen_at,
   createdAt: profile.created_at,
   reviewedAt: profile.reviewed_at
 });
@@ -45,13 +47,16 @@ export const profileService = {
     const { data, error } = await client.auth.signInWithPassword({ email: email.trim(), password });
     if (error) throw error;
     const profile = await getProfile(data.user.id);
-    if (profile.approvalStatus !== "approved") {
+    if (profile.approvalStatus !== "approved" || profile.isBlocked) {
       await client.auth.signOut();
-      throw new Error(profile.approvalStatus === "rejected"
+      throw new Error(profile.isBlocked
+        ? "Your account has been blocked. Please contact the administrator."
+        : profile.approvalStatus === "rejected"
         ? "Your access request was rejected. Please contact the administrator."
         : "Your access request is waiting for administrator approval.");
     }
     localStorage.setItem("interview-last-account-email", profile.email);
+    await this.touchLastSeen();
     return profile;
   },
 
@@ -61,7 +66,9 @@ export const profileService = {
     if (error) throw error;
     if (!session?.user) return null;
     const profile = await getProfile(session.user.id);
-    return profile.approvalStatus === "approved" ? profile : null;
+    if (profile.approvalStatus !== "approved" || profile.isBlocked) return null;
+    await this.touchLastSeen();
+    return profile;
   },
 
   async signOut() {
@@ -100,5 +107,41 @@ export const profileService = {
     const { data, error } = await client.from("profiles").update({ requested_plan: plan }).eq("id", user.id).select("*").single();
     if (error) throw error;
     return toProfile(data);
+  },
+
+  async touchLastSeen() {
+    const { error } = await requireSupabase().rpc("touch_last_seen");
+    if (error) throw error;
+  },
+
+  async getUserDetails(id) {
+    const { data, error } = await requireSupabase().rpc("admin_get_user_details", { target_user_id: id });
+    if (error) throw error;
+    return {
+      profile: toProfile(data.profile),
+      workspace: {
+        languages: Array.isArray(data.workspace?.languages) ? data.workspace.languages : [],
+        questions: data.workspace?.questions && typeof data.workspace.questions === "object" ? data.workspace.questions : {}
+      }
+    };
+  },
+
+  async saveUserWorkspace(id, workspace) {
+    const { error } = await requireSupabase().rpc("admin_save_user_workspace", {
+      target_user_id: id,
+      next_languages: workspace.languages,
+      next_questions: workspace.questions
+    });
+    if (error) throw error;
+  },
+
+  async setUserBlocked(id, blocked) {
+    const { error } = await requireSupabase().rpc("admin_set_user_blocked", { target_user_id: id, blocked });
+    if (error) throw error;
+  },
+
+  async deleteUser(id) {
+    const { error } = await requireSupabase().rpc("admin_delete_user", { target_user_id: id });
+    if (error) throw error;
   }
 };
