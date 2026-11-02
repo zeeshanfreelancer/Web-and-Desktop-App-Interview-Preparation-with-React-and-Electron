@@ -30,7 +30,7 @@ function mergeWorkspace(local, cloud) {
 }
 
 async function saveWorkspace() {
-  if (!supabase || !activeUserId || !navigator.onLine || syncing) return;
+  if (!supabase || !activeUserId || !navigator.onLine || syncing) return false;
   syncing = true;
   try {
     const workspace = localStorageService.getWorkspaceSnapshot();
@@ -41,8 +41,10 @@ async function saveWorkspace() {
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id" });
     if (error) throw error;
+    return true;
   } catch (error) {
     console.warn("Workspace sync deferred:", error.message);
+    return false;
   } finally { syncing = false; }
 }
 
@@ -70,7 +72,7 @@ export const workspaceSync = {
 
   async syncNow() {
     if (timer) clearTimeout(timer);
-    await saveWorkspace();
+    return saveWorkspace();
   },
 
   stop() {

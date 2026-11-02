@@ -9,6 +9,8 @@ export default function AccountDashboard({ user, onUserUpdated, onSignOut }) {
   const isAdmin = user.role === "admin";
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
   const [error, setError] = useState("");
 
   const loadRequests = useCallback(async () => {
@@ -39,10 +41,24 @@ export default function AccountDashboard({ user, onUserUpdated, onSignOut }) {
     try { await workspaceSync.syncNow(); await profileService.signOut(); onSignOut(); } catch (err) { setError(err.message || "Could not sign out."); }
   };
 
+  const syncNow = async () => {
+    if (!navigator.onLine) {
+      setSyncMessage("You are offline. Your changes remain saved on this device and will sync when you reconnect.");
+      return;
+    }
+    setSyncing(true); setSyncMessage("");
+    try {
+      const saved = await workspaceSync.syncNow();
+      setSyncMessage(saved ? "Workspace synced successfully." : "Sync is waiting. Please try again in a moment.");
+    } finally { setSyncing(false); }
+  };
+
   return <div className="space-y-6">
     <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 p-6 text-white shadow-lg"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-medium text-blue-100">{isAdmin ? "Central administrator" : "Interview Prep account"}</p><h2 className="mt-1 text-2xl font-bold">Welcome back, {user.name}</h2><p className="mt-2 text-sm text-blue-100">{user.email}</p></div><span className="rounded-full bg-white/20 px-3 py-1.5 text-sm font-medium capitalize">{user.role}</span></div><div className="mt-6 grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-white/15 p-3"><p className="text-xs text-blue-100">Current plan</p><p className="mt-1 font-semibold capitalize">{user.plan}</p></div><div className="rounded-xl bg-white/15 p-3"><p className="text-xs text-blue-100">Access status</p><p className="mt-1 font-semibold capitalize">{user.approvalStatus}</p></div><div className="rounded-xl bg-white/15 p-3"><p className="text-xs text-blue-100">Member since</p><p className="mt-1 font-semibold">{new Date(user.createdAt).toLocaleDateString()}</p></div></div></section>
 
     {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+
+    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold text-gray-900">Workspace synchronization</h3><p className="mt-1 text-sm text-gray-500">{navigator.onLine ? "Online — changes sync automatically." : "Offline — changes are stored locally until you reconnect."}</p></div><button onClick={syncNow} disabled={syncing} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"><FiRefreshCw className={`mr-1 inline ${syncing ? "animate-spin" : ""}`} />{syncing ? "Syncing..." : "Sync now"}</button></div>{syncMessage && <p className={`mt-3 rounded-lg p-3 text-sm ${syncMessage.startsWith("Workspace synced") ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"}`}>{syncMessage}</p>}</section>
 
     <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><FiCreditCard className="text-blue-600" /><h3 className="font-semibold text-gray-900">Plan and access</h3></div>{user.plan === "free" && !isAdmin ? <div className="mt-4 rounded-xl bg-blue-50 p-4"><p className="font-medium text-blue-950">Free plan limits</p><p className="mt-1 text-sm text-blue-800">2 languages and 10 questions per language.</p>{user.requestedPlan ? <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900"><FiClock />{user.requestedPlan} upgrade request pending</p> : <div className="mt-4 flex flex-wrap gap-2"><button onClick={() => upgrade("monthly")} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Upgrade monthly</button><button onClick={() => upgrade("yearly")} className="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-white">Upgrade yearly</button></div>}</div> : <p className="mt-3 text-sm text-gray-600">{isAdmin ? "You manage user access and plan requests from this dashboard." : "Your premium access is active with unlimited workspace limits."}</p>}</section>
 
