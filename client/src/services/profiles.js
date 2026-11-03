@@ -139,6 +139,28 @@ export const profileService = {
     return getProfile(user.id);
   },
 
+  async getDirectMessages(userId = null) {
+    const { data, error } = await requireSupabase().rpc("get_direct_messages", { target_user_id: userId });
+    if (error) throw error;
+    return data;
+  },
+
+  async sendDirectMessage(userId, body) {
+    const { error } = await requireSupabase().rpc("send_direct_message", { target_user_id: userId, message_text: body });
+    if (error) throw error;
+  },
+
+  async getGroupMessages() {
+    const { data, error } = await requireSupabase().rpc("get_group_messages");
+    if (error) throw error;
+    return data;
+  },
+
+  async sendGroupMessage(body) {
+    const { error } = await requireSupabase().rpc("send_group_message", { message_text: body });
+    if (error) throw error;
+  },
+
   async getUserDetails(id) {
     const { data, error } = await requireSupabase().rpc("admin_get_user_details", { target_user_id: id });
     if (error) throw error;
