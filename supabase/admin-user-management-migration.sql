@@ -73,7 +73,7 @@ create or replace function public.get_group_messages()
 returns table(id uuid, body text, created_at timestamptz, is_mine boolean, sender_label text)
 language sql security definer set search_path = public as $$
   select m.id, m.body, m.created_at, m.sender_id = auth.uid(),
-    case when m.sender_id = auth.uid() then 'You' when public.is_admin() and p.role = 'admin' then 'Administrator' else 'Anonymous member' end
+    case when m.sender_id = auth.uid() then 'You' when p.role = 'admin' then 'Administrator' else 'Anonymous member' end
   from public.group_messages m join public.profiles p on p.id = m.sender_id
   order by m.created_at asc;
 $$;

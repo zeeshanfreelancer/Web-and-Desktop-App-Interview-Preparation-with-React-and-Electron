@@ -9,10 +9,12 @@ import {
   FiSettings,
   FiUpload,
   FiMenu,
-  FiClock
+  FiClock,
+  FiMessageCircle
 } from "react-icons/fi";
 import QuestionBoard from "./QuestionBoard";
 import AccountDashboard from "./AccountDashboard";
+import MessagesPanel from "./MessagesPanel";
 import { localStorageService } from "../services/localStorage";
 import { exportToPDF, exportToWord, exportToJSON, importFromJSON, importFromJSONString } from "../utils/exportImport";
 import { isElectron, openJsonFile } from "../utils/electron";
@@ -70,6 +72,7 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
   const [editingLang, setEditingLang] = useState(null);
   const [editingValue, setEditingValue] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [adminSettingsView, setAdminSettingsView] = useState("dashboard");
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
   const [editorSessionKey, setEditorSessionKey] = useState(0);
@@ -499,6 +502,14 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
               <FiSettings size={16} />
               <span className="hidden sm:inline">Settings</span>
             </button>
+            <button
+              onClick={() => setChatOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+              title="Open chat"
+            >
+              <FiMessageCircle size={17} />
+              <span className="hidden sm:inline">Chat</span>
+            </button>
           </div>
         </div>
       </div>
@@ -510,6 +521,8 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
         onChange={handleFileImport}
         className="hidden"
       />
+
+      {chatOpen && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"><div className="flex h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"><div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-bold text-gray-900">Chat</h2><p className="text-sm text-gray-500">Private admin messages and the anonymous community group.</p></div><button type="button" onClick={() => setChatOpen(false)} className="rounded p-2 text-gray-500 hover:bg-gray-100" title="Close chat"><FiX size={22} /></button></div><div className="min-h-0 flex-1 overflow-y-auto p-5"><MessagesPanel user={user} /></div></div></div>}
 
       {/* Content with top padding */}
       <div className="pt-16 pb-8">
