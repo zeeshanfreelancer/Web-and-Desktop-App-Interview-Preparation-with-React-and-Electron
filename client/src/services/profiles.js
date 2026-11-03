@@ -129,6 +129,16 @@ export const profileService = {
     return getProfile(user.id);
   },
 
+  async removeAvatar() {
+    const client = requireSupabase();
+    const { data: { user }, error: userError } = await client.auth.getUser();
+    if (userError) throw userError;
+    if (!user) throw new Error("You must be signed in.");
+    const { error } = await client.rpc("remove_my_avatar");
+    if (error) throw error;
+    return getProfile(user.id);
+  },
+
   async getUserDetails(id) {
     const { data, error } = await requireSupabase().rpc("admin_get_user_details", { target_user_id: id });
     if (error) throw error;

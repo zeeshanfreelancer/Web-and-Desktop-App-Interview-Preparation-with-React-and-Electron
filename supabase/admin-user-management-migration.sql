@@ -30,6 +30,13 @@ begin
 end;
 $$;
 
+create or replace function public.remove_my_avatar()
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update public.profiles set avatar_path = null where id = auth.uid();
+end;
+$$;
+
 -- Give paid accounts created before subscription tracking a fresh initial period.
 -- This only affects rows that do not already have an expiry date.
 update public.profiles
@@ -143,6 +150,7 @@ $$;
 
 revoke all on function public.touch_last_seen() from public;
 revoke all on function public.update_my_avatar(text) from public;
+revoke all on function public.remove_my_avatar() from public;
 revoke all on function public.admin_get_user_details(uuid) from public;
 revoke all on function public.admin_save_user_workspace(uuid, jsonb, jsonb) from public;
 revoke all on function public.admin_set_user_blocked(uuid, boolean) from public;
@@ -150,6 +158,7 @@ revoke all on function public.admin_review_user(uuid, public.approval_state) fro
 revoke all on function public.admin_delete_user(uuid) from public;
 grant execute on function public.touch_last_seen() to authenticated;
 grant execute on function public.update_my_avatar(text) to authenticated;
+grant execute on function public.remove_my_avatar() to authenticated;
 grant execute on function public.admin_get_user_details(uuid) to authenticated;
 grant execute on function public.admin_save_user_workspace(uuid, jsonb, jsonb) to authenticated;
 grant execute on function public.admin_set_user_blocked(uuid, boolean) to authenticated;
