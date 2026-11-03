@@ -145,8 +145,8 @@ export const profileService = {
     return data;
   },
 
-  async sendDirectMessage(userId, body) {
-    const { error } = await requireSupabase().rpc("send_direct_message", { target_user_id: userId, message_text: body });
+  async sendDirectMessage(userId, body, attachment = null) {
+    const { error } = await requireSupabase().rpc("send_direct_message", { target_user_id: userId, message_text: body, next_attachment_path: attachment?.path ?? null, next_attachment_name: attachment?.name ?? null, next_attachment_type: attachment?.type ?? null });
     if (error) throw error;
   },
 
@@ -156,9 +156,33 @@ export const profileService = {
     return data;
   },
 
-  async sendGroupMessage(body) {
-    const { error } = await requireSupabase().rpc("send_group_message", { message_text: body });
+  async sendGroupMessage(body, attachment = null) {
+    const { error } = await requireSupabase().rpc("send_group_message", { message_text: body, next_attachment_path: attachment?.path ?? null, next_attachment_name: attachment?.name ?? null, next_attachment_type: attachment?.type ?? null });
     if (error) throw error;
+  },
+
+  async getChatStats() {
+    const { data, error } = await requireSupabase().rpc("get_chat_stats");
+    if (error) throw error;
+    return data?.[0] || { total_users: 0, active_users: 0 };
+  },
+
+  async uploadChatAttachment(file) {
+    if (!file) return null;
+    if (file.size > 10 * 1024 * 1024) throw new Error("Attachments must be 10 MB or smaller.");
+    const client = requireSupabase();
+    const { data: { user }, error: userError } = await client.auth.getUser();
+    if (userError) throw userError;
+    if (!user) throw new Error("You must be signed in.");
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${user.id}/${Date.now()}-${safeName}`;
+    const { error } = await client.storage.from("chat-attachments").upload(path, file, { contentType: file.type || "application/octet-stream" });
+    if (error) throw error;
+    return { path, name: file.name, type: file.type };
+  },
+
+  getChatAttachmentUrl(path) {
+    return path ? requireSupabase().storage.from("chat-attachments").getPublicUrl(path).data.publicUrl : null;
   },
 
   async getUserDetails(id) {

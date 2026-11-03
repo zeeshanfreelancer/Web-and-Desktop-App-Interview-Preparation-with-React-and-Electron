@@ -24,11 +24,31 @@ create table if not exists public.group_messages (
 create index if not exists group_messages_created_at on public.group_messages (created_at);
 alter table public.group_messages enable row level security;
 
-create or replace function public.send_direct_message(target_user_id uuid, message_text text)
+alter table public.direct_messages add column if not exists attachment_path text;
+alter table public.direct_messages add column if not exists attachment_name text;
+alter table public.direct_messages add column if not exists attachment_type text;
+alter table public.group_messages add column if not exists attachment_path text;
+alter table public.group_messages add column if not exists attachment_name text;
+alter table public.group_messages add column if not exists attachment_type text;
+
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('chat-attachments', 'chat-attachments', true, 10485760)
+on conflict (id) do update set public = true, file_size_limit = 10485760;
+drop policy if exists "Users can view chat attachments" on storage.objects;
+drop policy if exists "Users can upload chat attachments" on storage.objects;
+create policy "Users can view chat attachments" on storage.objects for select to authenticated using (bucket_id = 'chat-attachments');
+create policy "Users can upload chat attachments" on storage.objects for insert to authenticated with check (bucket_id = 'chat-attachments' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop function if exists public.send_direct_message(uuid, text);
+drop function if exists public.get_direct_messages(uuid);
+drop function if exists public.send_group_message(text);
+drop function if exists public.get_group_messages();
+
+create function public.send_direct_message(target_user_id uuid, message_text text, next_attachment_path text default null, next_attachment_name text default null, next_attachment_type text default null)
 returns void language plpgsql security definer set search_path = public as $$
 declare recipient uuid;
 begin
-  if nullif(trim(message_text), '') is null then raise exception 'Message cannot be empty'; end if;
+  if nullif(trim(message_text), '') is null and next_attachment_path is null then raise exception 'Message cannot be empty'; end if;
   if char_length(trim(message_text)) > 2000 then raise exception 'Message is too long'; end if;
   if public.is_admin() then
     select id into recipient from public.profiles where id = target_user_id and role = 'user' and not is_blocked;
@@ -36,12 +56,13 @@ begin
     select id into recipient from public.profiles where role = 'admin' and approval_status = 'approved';
   end if;
   if recipient is null then raise exception 'Recipient is not available'; end if;
-  insert into public.direct_messages (sender_id, recipient_id, body) values (auth.uid(), recipient, trim(message_text));
+  if next_attachment_path is not null and next_attachment_path !~ ('^' || auth.uid()::text || '/') then raise exception 'Invalid attachment'; end if;
+  insert into public.direct_messages (sender_id, recipient_id, body, attachment_path, attachment_name, attachment_type) values (auth.uid(), recipient, coalesce(trim(message_text), ''), next_attachment_path, next_attachment_name, next_attachment_type);
 end;
 $$;
 
-create or replace function public.get_direct_messages(target_user_id uuid default null)
-returns table(id uuid, body text, created_at timestamptz, is_mine boolean, sender_label text)
+create function public.get_direct_messages(target_user_id uuid default null)
+returns table(id uuid, body text, created_at timestamptz, is_mine boolean, sender_label text, attachment_path text, attachment_name text, attachment_type text)
 language plpgsql security definer set search_path = public as $$
 declare other_user uuid;
 begin
@@ -52,30 +73,37 @@ begin
     select p.id into other_user from public.profiles p where p.role = 'admin' and p.approval_status = 'approved';
   end if;
   return query select m.id, m.body, m.created_at, m.sender_id = auth.uid(),
-    case when m.sender_id = auth.uid() then 'You' when public.is_admin() then p.full_name else 'Administrator' end
+    case when m.sender_id = auth.uid() then 'You' when public.is_admin() then p.full_name else 'Administrator' end, m.attachment_path, m.attachment_name, m.attachment_type
   from public.direct_messages m join public.profiles p on p.id = m.sender_id
   where (m.sender_id = auth.uid() and m.recipient_id = other_user) or (m.sender_id = other_user and m.recipient_id = auth.uid())
   order by m.created_at asc;
 end;
 $$;
 
-create or replace function public.send_group_message(message_text text)
+create function public.send_group_message(message_text text, next_attachment_path text default null, next_attachment_name text default null, next_attachment_type text default null)
 returns void language plpgsql security definer set search_path = public as $$
 begin
-  if nullif(trim(message_text), '') is null then raise exception 'Message cannot be empty'; end if;
+  if nullif(trim(message_text), '') is null and next_attachment_path is null then raise exception 'Message cannot be empty'; end if;
   if char_length(trim(message_text)) > 2000 then raise exception 'Message is too long'; end if;
   if not exists (select 1 from public.profiles where id = auth.uid() and approval_status = 'approved' and not is_blocked) then raise exception 'Account is not allowed to send messages'; end if;
-  insert into public.group_messages (sender_id, body) values (auth.uid(), trim(message_text));
+  if next_attachment_path is not null and next_attachment_path !~ ('^' || auth.uid()::text || '/') then raise exception 'Invalid attachment'; end if;
+  insert into public.group_messages (sender_id, body, attachment_path, attachment_name, attachment_type) values (auth.uid(), coalesce(trim(message_text), ''), next_attachment_path, next_attachment_name, next_attachment_type);
 end;
 $$;
 
-create or replace function public.get_group_messages()
-returns table(id uuid, body text, created_at timestamptz, is_mine boolean, sender_label text)
+create function public.get_group_messages()
+returns table(id uuid, body text, created_at timestamptz, is_mine boolean, sender_label text, attachment_path text, attachment_name text, attachment_type text)
 language sql security definer set search_path = public as $$
   select m.id, m.body, m.created_at, m.sender_id = auth.uid(),
-    case when m.sender_id = auth.uid() then 'You' when p.role = 'admin' then 'Administrator' else 'Anonymous member' end
+    case when m.sender_id = auth.uid() then 'You' when p.role = 'admin' then 'Administrator' when public.is_admin() then p.full_name else 'Anonymous member' end,
+    m.attachment_path, m.attachment_name, m.attachment_type
   from public.group_messages m join public.profiles p on p.id = m.sender_id
   order by m.created_at asc;
+$$;
+
+create or replace function public.get_chat_stats()
+returns table(total_users bigint, active_users bigint) language sql security definer set search_path = public as $$
+  select count(*) filter (where role = 'user'), count(*) filter (where role = 'user' and last_seen_at > now() - interval '75 seconds') from public.profiles;
 $$;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -223,10 +251,11 @@ $$;
 
 revoke all on function public.touch_last_seen() from public;
 revoke all on table public.direct_messages, public.group_messages from public;
-revoke all on function public.send_direct_message(uuid, text) from public;
+revoke all on function public.send_direct_message(uuid, text, text, text, text) from public;
 revoke all on function public.get_direct_messages(uuid) from public;
-revoke all on function public.send_group_message(text) from public;
+revoke all on function public.send_group_message(text, text, text, text) from public;
 revoke all on function public.get_group_messages() from public;
+revoke all on function public.get_chat_stats() from public;
 revoke all on function public.update_my_avatar(text) from public;
 revoke all on function public.remove_my_avatar() from public;
 revoke all on function public.admin_get_user_details(uuid) from public;
@@ -235,10 +264,11 @@ revoke all on function public.admin_set_user_blocked(uuid, boolean) from public;
 revoke all on function public.admin_review_user(uuid, public.approval_state) from public;
 revoke all on function public.admin_delete_user(uuid) from public;
 grant execute on function public.touch_last_seen() to authenticated;
-grant execute on function public.send_direct_message(uuid, text) to authenticated;
+grant execute on function public.send_direct_message(uuid, text, text, text, text) to authenticated;
 grant execute on function public.get_direct_messages(uuid) to authenticated;
-grant execute on function public.send_group_message(text) to authenticated;
+grant execute on function public.send_group_message(text, text, text, text) to authenticated;
 grant execute on function public.get_group_messages() to authenticated;
+grant execute on function public.get_chat_stats() to authenticated;
 grant execute on function public.update_my_avatar(text) to authenticated;
 grant execute on function public.remove_my_avatar() to authenticated;
 grant execute on function public.admin_get_user_details(uuid) to authenticated;

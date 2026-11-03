@@ -14,7 +14,7 @@ import {
 } from "react-icons/fi";
 import QuestionBoard from "./QuestionBoard";
 import AccountDashboard from "./AccountDashboard";
-import MessagesPanel from "./MessagesPanel";
+import ChatPage from "./ChatPage";
 import { localStorageService } from "../services/localStorage";
 import { exportToPDF, exportToWord, exportToJSON, importFromJSON, importFromJSONString } from "../utils/exportImport";
 import { isElectron, openJsonFile } from "../utils/electron";
@@ -391,6 +391,8 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
     return () => clearInterval(interval);
   }, [modalOpen, user?.subscriptionExpiresAt]);
 
+  if (chatOpen) return <ChatPage user={user} onBack={() => setChatOpen(false)} />;
+
   return (
     <div className="max-w-6xl mx-auto">
 
@@ -522,7 +524,6 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
         className="hidden"
       />
 
-      {chatOpen && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"><div className="flex h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"><div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-bold text-gray-900">Chat</h2><p className="text-sm text-gray-500">Private admin messages and the anonymous community group.</p></div><button type="button" onClick={() => setChatOpen(false)} className="rounded p-2 text-gray-500 hover:bg-gray-100" title="Close chat"><FiX size={22} /></button></div><div className="min-h-0 flex-1 overflow-y-auto p-5"><MessagesPanel user={user} /></div></div></div>}
 
       {/* Content with top padding */}
       <div className="pt-16 pb-8">
