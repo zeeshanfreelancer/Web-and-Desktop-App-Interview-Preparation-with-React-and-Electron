@@ -17,6 +17,7 @@ const toProfile = (profile) => profile && ({
   lastSeenAt: profile.last_seen_at,
   subscriptionStartedAt: profile.subscription_started_at,
   subscriptionExpiresAt: profile.subscription_expires_at,
+  avatarUrl: profile.avatar_path ? `${requireSupabase().storage.from("profile-avatars").getPublicUrl(profile.avatar_path).data.publicUrl}?v=${encodeURIComponent(profile.updated_at || profile.avatar_path)}` : null,
   createdAt: profile.created_at,
   reviewedAt: profile.reviewed_at
 });
@@ -110,6 +111,22 @@ export const profileService = {
   async touchLastSeen() {
     const { error } = await requireSupabase().rpc("touch_last_seen");
     if (error) throw error;
+  },
+
+  async uploadAvatar(file) {
+    if (!file || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("Choose a JPG, PNG, or WebP image.");
+    if (file.size > 2 * 1024 * 1024) throw new Error("Profile images must be 2 MB or smaller.");
+    const client = requireSupabase();
+    const { data: { user }, error: userError } = await client.auth.getUser();
+    if (userError) throw userError;
+    if (!user) throw new Error("You must be signed in.");
+    const extension = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
+    const path = `${user.id}/avatar.${extension}`;
+    const { error: uploadError } = await client.storage.from("profile-avatars").upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadError) throw uploadError;
+    const { error } = await client.rpc("update_my_avatar", { next_avatar_path: path });
+    if (error) throw error;
+    return getProfile(user.id);
   },
 
   async getUserDetails(id) {

@@ -3,6 +3,32 @@ alter table public.profiles add column if not exists is_blocked boolean not null
 alter table public.profiles add column if not exists last_seen_at timestamptz;
 alter table public.profiles add column if not exists subscription_started_at timestamptz;
 alter table public.profiles add column if not exists subscription_expires_at timestamptz;
+alter table public.profiles add column if not exists avatar_path text;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('profile-avatars', 'profile-avatars', true, 2097152, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = true, file_size_limit = 2097152, allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
+
+drop policy if exists "Users can view profile avatars" on storage.objects;
+drop policy if exists "Users can upload their profile avatar" on storage.objects;
+drop policy if exists "Users can replace their profile avatar" on storage.objects;
+create policy "Users can view profile avatars" on storage.objects
+  for select to authenticated using (bucket_id = 'profile-avatars');
+create policy "Users can upload their profile avatar" on storage.objects
+  for insert to authenticated with check (bucket_id = 'profile-avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "Users can replace their profile avatar" on storage.objects
+  for update to authenticated using (bucket_id = 'profile-avatars' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'profile-avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create or replace function public.update_my_avatar(next_avatar_path text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if next_avatar_path is null or next_avatar_path !~ ('^' || auth.uid()::text || '/avatar\.(jpg|png|webp)$') then
+    raise exception 'Invalid avatar path';
+  end if;
+  update public.profiles set avatar_path = next_avatar_path where id = auth.uid();
+end;
+$$;
 
 -- Give paid accounts created before subscription tracking a fresh initial period.
 -- This only affects rows that do not already have an expiry date.
@@ -116,12 +142,14 @@ end;
 $$;
 
 revoke all on function public.touch_last_seen() from public;
+revoke all on function public.update_my_avatar(text) from public;
 revoke all on function public.admin_get_user_details(uuid) from public;
 revoke all on function public.admin_save_user_workspace(uuid, jsonb, jsonb) from public;
 revoke all on function public.admin_set_user_blocked(uuid, boolean) from public;
 revoke all on function public.admin_review_user(uuid, public.approval_state) from public;
 revoke all on function public.admin_delete_user(uuid) from public;
 grant execute on function public.touch_last_seen() to authenticated;
+grant execute on function public.update_my_avatar(text) to authenticated;
 grant execute on function public.admin_get_user_details(uuid) to authenticated;
 grant execute on function public.admin_save_user_workspace(uuid, jsonb, jsonb) to authenticated;
 grant execute on function public.admin_set_user_blocked(uuid, boolean) to authenticated;
