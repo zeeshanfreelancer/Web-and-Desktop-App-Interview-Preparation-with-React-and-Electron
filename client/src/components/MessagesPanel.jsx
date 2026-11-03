@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FiPaperclip, FiRefreshCw, FiSend, FiUsers, FiX } from "react-icons/fi";
 import { profileService } from "../services/profiles";
+import { supabase } from "../services/supabase";
 
 const time = (value) => new Date(value).toLocaleString();
 const isImage = (type) => type?.startsWith("image/");
@@ -17,6 +18,7 @@ export default function MessagesPanel({ user }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef(null);
+  const channelRef = useRef(null);
 
   const load = async (quiet = false) => {
     if (tab === "direct" && isAdmin && !selectedUserId) { setMessages([]); return; }
@@ -25,7 +27,14 @@ export default function MessagesPanel({ user }) {
   };
   const loadStats = () => profileService.getChatStats().then(setStats).catch(() => {});
   useEffect(() => { load(); loadStats(); }, [tab, selectedUserId]);
-  useEffect(() => { const interval = window.setInterval(() => { load(true); loadStats(); }, 3000); return () => window.clearInterval(interval); }, [tab, selectedUserId]);
+  useEffect(() => {
+    if (!supabase) return undefined;
+    const channel = supabase.channel("interview-prep-chat", { config: { broadcast: { self: false } } });
+    channelRef.current = channel;
+    channel.on("broadcast", { event: "message-created" }, () => { load(true); loadStats(); }).subscribe();
+    return () => { if (channelRef.current === channel) channelRef.current = null; supabase.removeChannel(channel); };
+  }, [tab, selectedUserId]);
+  useEffect(() => { const interval = window.setInterval(() => { load(true); loadStats(); }, 30_000); return () => window.clearInterval(interval); }, [tab, selectedUserId]);
   useEffect(() => { if (isAdmin) profileService.getRequests().then(setUsers).catch((err) => setError(err.message || "Could not load users.")); }, [isAdmin]);
 
   const send = async (event) => {
@@ -36,6 +45,7 @@ export default function MessagesPanel({ user }) {
       const uploaded = attachment ? await profileService.uploadChatAttachment(attachment) : null;
       if (tab === "group") await profileService.sendGroupMessage(text, uploaded);
       else await profileService.sendDirectMessage(isAdmin ? selectedUserId : null, text, uploaded);
+      channelRef.current?.send({ type: "broadcast", event: "message-created", payload: {} });
       setText(""); setAttachment(null); await load(true);
     } catch (err) { setError(err.message || "Could not send message."); } finally { setLoading(false); }
   };
