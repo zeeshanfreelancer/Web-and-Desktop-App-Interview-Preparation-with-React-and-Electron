@@ -30,6 +30,8 @@ alter table public.direct_messages add column if not exists attachment_type text
 alter table public.group_messages add column if not exists attachment_path text;
 alter table public.group_messages add column if not exists attachment_name text;
 alter table public.group_messages add column if not exists attachment_type text;
+alter table public.direct_messages add column if not exists updated_at timestamptz;
+alter table public.group_messages add column if not exists updated_at timestamptz;
 
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('chat-attachments', 'chat-attachments', true, 10485760)
@@ -40,8 +42,10 @@ create policy "Users can view chat attachments" on storage.objects for select to
 create policy "Users can upload chat attachments" on storage.objects for insert to authenticated with check (bucket_id = 'chat-attachments' and (storage.foldername(name))[1] = auth.uid()::text);
 
 drop function if exists public.send_direct_message(uuid, text);
+drop function if exists public.send_direct_message(uuid, text, text, text, text);
 drop function if exists public.get_direct_messages(uuid);
 drop function if exists public.send_group_message(text);
+drop function if exists public.send_group_message(text, text, text, text);
 drop function if exists public.get_group_messages();
 
 create function public.send_direct_message(target_user_id uuid, message_text text, next_attachment_path text default null, next_attachment_name text default null, next_attachment_type text default null)
@@ -104,6 +108,40 @@ $$;
 create or replace function public.get_chat_stats()
 returns table(total_users bigint, active_users bigint) language sql security definer set search_path = public as $$
   select count(*) filter (where role = 'user'), count(*) filter (where role = 'user' and last_seen_at > now() - interval '75 seconds') from public.profiles;
+$$;
+
+create or replace function public.edit_chat_message(message_scope text, target_message_id uuid, next_body text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if public.is_admin() then raise exception 'Administrators cannot edit chat messages'; end if;
+  if nullif(trim(next_body), '') is null then raise exception 'Message cannot be empty'; end if;
+  if char_length(trim(next_body)) > 2000 then raise exception 'Message is too long'; end if;
+  if message_scope = 'group' then
+    update public.group_messages set body = trim(next_body), updated_at = now()
+    where id = target_message_id and sender_id = auth.uid() and created_at >= now() - interval '10 minutes';
+  elsif message_scope = 'direct' then
+    update public.direct_messages set body = trim(next_body), updated_at = now()
+    where id = target_message_id and sender_id = auth.uid() and created_at >= now() - interval '10 minutes';
+  else
+    raise exception 'Invalid message type';
+  end if;
+  if not found then raise exception 'Messages can only be edited by their sender within 10 minutes'; end if;
+end;
+$$;
+
+create or replace function public.admin_delete_chat_message(message_scope text, target_message_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Administrator access required'; end if;
+  if message_scope = 'group' then
+    delete from public.group_messages where id = target_message_id;
+  elsif message_scope = 'direct' then
+    delete from public.direct_messages where id = target_message_id;
+  else
+    raise exception 'Invalid message type';
+  end if;
+  if not found then raise exception 'Message not found'; end if;
+end;
 $$;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -256,6 +294,8 @@ revoke all on function public.get_direct_messages(uuid) from public;
 revoke all on function public.send_group_message(text, text, text, text) from public;
 revoke all on function public.get_group_messages() from public;
 revoke all on function public.get_chat_stats() from public;
+revoke all on function public.edit_chat_message(text, uuid, text) from public;
+revoke all on function public.admin_delete_chat_message(text, uuid) from public;
 revoke all on function public.update_my_avatar(text) from public;
 revoke all on function public.remove_my_avatar() from public;
 revoke all on function public.admin_get_user_details(uuid) from public;
@@ -269,6 +309,8 @@ grant execute on function public.get_direct_messages(uuid) to authenticated;
 grant execute on function public.send_group_message(text, text, text, text) to authenticated;
 grant execute on function public.get_group_messages() to authenticated;
 grant execute on function public.get_chat_stats() to authenticated;
+grant execute on function public.edit_chat_message(text, uuid, text) to authenticated;
+grant execute on function public.admin_delete_chat_message(text, uuid) to authenticated;
 grant execute on function public.update_my_avatar(text) to authenticated;
 grant execute on function public.remove_my_avatar() to authenticated;
 grant execute on function public.admin_get_user_details(uuid) to authenticated;

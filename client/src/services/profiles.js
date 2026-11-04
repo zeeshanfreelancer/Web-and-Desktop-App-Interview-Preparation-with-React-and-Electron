@@ -185,6 +185,16 @@ export const profileService = {
     return path ? requireSupabase().storage.from("chat-attachments").getPublicUrl(path).data.publicUrl : null;
   },
 
+  async editChatMessage(scope, id, body) {
+    const { error } = await requireSupabase().rpc("edit_chat_message", { message_scope: scope, target_message_id: id, next_body: body });
+    if (error) throw error;
+  },
+
+  async deleteChatMessage(scope, id) {
+    const { error } = await requireSupabase().rpc("admin_delete_chat_message", { message_scope: scope, target_message_id: id });
+    if (error) throw error;
+  },
+
   async getUserDetails(id) {
     const { data, error } = await requireSupabase().rpc("admin_get_user_details", { target_user_id: id });
     if (error) throw error;
