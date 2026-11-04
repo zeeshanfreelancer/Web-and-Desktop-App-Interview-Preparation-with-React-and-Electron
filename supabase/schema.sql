@@ -13,6 +13,8 @@ create table public.profiles (
   plan public.subscription_plan not null default 'free',
   requested_plan public.subscription_plan,
   approval_status public.approval_state not null default 'approved',
+  free_trial_started_at timestamptz,
+  free_trial_expires_at timestamptz,
   created_at timestamptz not null default now(),
   reviewed_at timestamptz,
   reviewed_by uuid references auth.users(id)
@@ -27,13 +29,15 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name, email, plan, approval_status)
+  insert into public.profiles (id, full_name, email, plan, approval_status, free_trial_started_at, free_trial_expires_at)
   values (
     new.id,
     coalesce(nullif(new.raw_user_meta_data ->> 'full_name', ''), split_part(new.email, '@', 1)),
     new.email,
     coalesce((new.raw_user_meta_data ->> 'plan')::public.subscription_plan, 'free'),
-    case when coalesce(new.raw_user_meta_data ->> 'plan', 'free') = 'free' then 'approved'::public.approval_state else 'pending'::public.approval_state end
+    case when coalesce(new.raw_user_meta_data ->> 'plan', 'free') = 'free' then 'approved'::public.approval_state else 'pending'::public.approval_state end,
+    now(),
+    now() + interval '10 days'
   );
   return new;
 end;

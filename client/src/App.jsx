@@ -15,7 +15,7 @@ function App() {
     profileService.getCurrentUser()
       .then(async (user) => {
         if (user) {
-          localStorageService.setActiveProfile(user.id, false, user.plan);
+          localStorageService.setActiveProfile(user.id, false, user.effectivePlan);
           await workspaceSync.start(user.id);
         }
         setProfileState({ loading: false, user });
@@ -47,6 +47,18 @@ function App() {
     };
   }, [activeUserId]);
 
+  useEffect(() => {
+    const expiresAt = profileState.user?.freeTrialExpiresAt;
+    if (!expiresAt || profileState.user?.effectivePlan !== "trial") return undefined;
+    const delay = new Date(expiresAt).getTime() - Date.now();
+    if (delay <= 0) return undefined;
+    const timeout = window.setTimeout(() => {
+      localStorageService.setActiveProfile(profileState.user.id, false, "free");
+      setProfileState((current) => current.user ? { ...current, user: { ...current.user, effectivePlan: "free" } } : current);
+    }, delay);
+    return () => window.clearTimeout(timeout);
+  }, [profileState.user?.id, profileState.user?.effectivePlan, profileState.user?.freeTrialExpiresAt]);
+
   if (!profileService.isConfigured()) {
     return <div className="min-h-screen bg-blue-100 flex items-center justify-center p-4"><div className="max-w-lg rounded-xl bg-white p-8 shadow-lg"><h1 className="text-xl font-bold">Supabase setup required</h1><p className="mt-3 text-sm text-gray-600">{profileService.configurationError}</p><p className="mt-2 text-sm text-gray-600">Then run <code className="rounded bg-gray-100 px-1">supabase/schema.sql</code> in the Supabase SQL Editor.</p></div></div>;
   }
@@ -57,7 +69,7 @@ function App() {
 
   if (!profileState.user) {
     return <ProfileAccess onSignedIn={async (user) => {
-      localStorageService.setActiveProfile(user.id, false, user.plan);
+      localStorageService.setActiveProfile(user.id, false, user.effectivePlan);
       await workspaceSync.start(user.id);
       setProfileState({ loading: false, user });
     }} />;
@@ -68,7 +80,7 @@ function App() {
       <LanguageTabs
         user={profileState.user}
         onUserUpdated={(user) => {
-          localStorageService.setActiveProfile(user.id, false, user.plan);
+          localStorageService.setActiveProfile(user.id, false, user.effectivePlan);
           setProfileState({ loading: false, user });
         }}
         onSignOut={() => { workspaceSync.stop(); setProfileState({ loading: false, user: null }); }}

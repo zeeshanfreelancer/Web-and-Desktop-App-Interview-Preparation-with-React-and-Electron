@@ -5,7 +5,9 @@ const requireSupabase = () => {
   return supabase;
 };
 
-const toProfile = (profile) => profile && ({
+const toProfile = (profile) => {
+  const trialActive = profile.plan === "free" && profile.free_trial_expires_at && new Date(profile.free_trial_expires_at).getTime() > Date.now();
+  return ({
   id: profile.id,
   name: profile.full_name,
   email: profile.email,
@@ -17,10 +19,14 @@ const toProfile = (profile) => profile && ({
   lastSeenAt: profile.last_seen_at,
   subscriptionStartedAt: profile.subscription_started_at,
   subscriptionExpiresAt: profile.subscription_expires_at,
+  freeTrialStartedAt: profile.free_trial_started_at,
+  freeTrialExpiresAt: profile.free_trial_expires_at,
+  effectivePlan: trialActive ? "trial" : profile.plan,
   avatarUrl: profile.avatar_path ? `${requireSupabase().storage.from("profile-avatars").getPublicUrl(profile.avatar_path).data.publicUrl}?v=${encodeURIComponent(profile.updated_at || profile.avatar_path)}` : null,
   createdAt: profile.created_at,
   reviewedAt: profile.reviewed_at
-});
+  });
+};
 
 const getProfile = async (id) => {
   const client = requireSupabase();

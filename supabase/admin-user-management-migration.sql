@@ -4,6 +4,33 @@ alter table public.profiles add column if not exists last_seen_at timestamptz;
 alter table public.profiles add column if not exists subscription_started_at timestamptz;
 alter table public.profiles add column if not exists subscription_expires_at timestamptz;
 alter table public.profiles add column if not exists avatar_path text;
+alter table public.profiles add column if not exists free_trial_started_at timestamptz;
+alter table public.profiles add column if not exists free_trial_expires_at timestamptz;
+
+-- New accounts receive 10 days of unlimited trial access, then remain on the free plan unless upgraded.
+update public.profiles
+set
+  free_trial_started_at = coalesce(free_trial_started_at, created_at),
+  free_trial_expires_at = coalesce(free_trial_expires_at, created_at + interval '10 days')
+where plan = 'free'
+  and free_trial_expires_at is null;
+
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, full_name, email, plan, approval_status, free_trial_started_at, free_trial_expires_at)
+  values (
+    new.id,
+    coalesce(nullif(new.raw_user_meta_data ->> 'full_name', ''), split_part(new.email, '@', 1)),
+    new.email,
+    coalesce((new.raw_user_meta_data ->> 'plan')::public.subscription_plan, 'free'),
+    case when coalesce(new.raw_user_meta_data ->> 'plan', 'free') = 'free' then 'approved'::public.approval_state else 'pending'::public.approval_state end,
+    now(),
+    now() + interval '10 days'
+  );
+  return new;
+end;
+$$;
 
 create table if not exists public.direct_messages (
   id uuid primary key default gen_random_uuid(),
