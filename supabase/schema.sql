@@ -46,6 +46,21 @@ $$;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
+create or replace function public.ensure_my_profile()
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare auth_user auth.users%rowtype;
+begin
+  select * into auth_user from auth.users where id = auth.uid();
+  if auth_user.id is null then raise exception 'Not authenticated'; end if;
+  insert into public.profiles (id, full_name, email, plan, approval_status, free_trial_started_at, free_trial_expires_at)
+  values (auth_user.id, coalesce(nullif(auth_user.raw_user_meta_data ->> 'full_name', ''), split_part(auth_user.email, '@', 1)), auth_user.email, 'free', 'approved', now(), now() + interval '10 days')
+  on conflict (id) do nothing;
+end;
+$$;
+
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -56,6 +71,9 @@ as $$
 $$;
 
 alter table public.profiles enable row level security;
+
+-- RLS policies below decide which rows authenticated users may access.
+grant select, update on table public.profiles to authenticated;
 
 create policy "Users can read their profile; admins can read all"
   on public.profiles for select to authenticated using (id = auth.uid() or public.is_admin());
@@ -70,6 +88,8 @@ create policy "Free users can request an upgrade"
   using (id = auth.uid() and role = 'user')
   with check (id = auth.uid() and role = 'user' and plan = 'free' and approval_status = 'approved' and requested_plan in ('monthly', 'yearly'));
 
+grant execute on function public.ensure_my_profile() to authenticated;
+
 create table public.user_workspaces (
   user_id uuid primary key references auth.users(id) on delete cascade,
   languages jsonb not null default '[]'::jsonb,
@@ -79,11 +99,13 @@ create table public.user_workspaces (
 
 alter table public.user_workspaces enable row level security;
 
+grant select, insert, update on table public.user_workspaces to authenticated;
+
 create policy "Users can read their own workspace" on public.user_workspaces for select to authenticated using (user_id = auth.uid());
 create policy "Users can create their own workspace" on public.user_workspaces for insert to authenticated with check (user_id = auth.uid());
 create policy "Users can update their own workspace" on public.user_workspaces for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- Bootstrap the one admin after that person has registered in the app.
 -- Replace the email and run this once:
--- update public.profiles set role = 'admin', approval_status = 'approved', reviewed_at = now()
--- where email = 'owner@example.com';
+update public.profiles set role = 'admin', approval_status = 'approved', reviewed_at = now()
+where email = 'zeeshankhan469224@gmail.com';

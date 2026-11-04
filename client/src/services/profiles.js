@@ -28,10 +28,25 @@ const toProfile = (profile) => {
   });
 };
 
+const fetchProfile = async (client, id) => {
+  // Do not request PostgREST's single-object response here. Some existing
+  // deployments were created without the profiles primary-key constraint,
+  // which makes `.maybeSingle()` fail during login before a profile can be
+  // repaired. The account id is still the authoritative lookup key.
+  const { data, error } = await client.from("profiles").select("*").eq("id", id).limit(1);
+  if (error) throw error;
+  return data?.[0] ?? null;
+};
+
 const getProfile = async (id) => {
   const client = requireSupabase();
-  const { data, error } = await client.from("profiles").select("*").eq("id", id).single();
-  if (error) throw error;
+  let data = await fetchProfile(client, id);
+  if (!data) {
+    const { error: repairError } = await client.rpc("ensure_my_profile");
+    if (repairError) throw repairError;
+    data = await fetchProfile(client, id);
+  }
+  if (!data) throw new Error("Your profile could not be created. Please contact the administrator.");
   return toProfile(data);
 };
 

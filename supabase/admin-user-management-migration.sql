@@ -7,6 +7,10 @@ alter table public.profiles add column if not exists avatar_path text;
 alter table public.profiles add column if not exists free_trial_started_at timestamptz;
 alter table public.profiles add column if not exists free_trial_expires_at timestamptz;
 
+-- Table privileges are required in addition to row-level security policies.
+grant select, update on table public.profiles to authenticated;
+grant select, insert, update on table public.user_workspaces to authenticated;
+
 -- New accounts receive 10 days of unlimited trial access, then remain on the free plan unless upgraded.
 update public.profiles
 set
@@ -29,6 +33,27 @@ begin
     now() + interval '10 days'
   );
   return new;
+end;
+$$;
+
+-- Repairs legacy accounts that exist in Auth but do not yet have a profile row.
+create or replace function public.ensure_my_profile()
+returns void language plpgsql security definer set search_path = public as $$
+declare auth_user auth.users%rowtype;
+begin
+  select * into auth_user from auth.users where id = auth.uid();
+  if auth_user.id is null then raise exception 'Not authenticated'; end if;
+  insert into public.profiles (id, full_name, email, plan, approval_status, free_trial_started_at, free_trial_expires_at)
+  values (
+    auth_user.id,
+    coalesce(nullif(auth_user.raw_user_meta_data ->> 'full_name', ''), split_part(auth_user.email, '@', 1)),
+    auth_user.email,
+    'free',
+    'approved',
+    now(),
+    now() + interval '10 days'
+  )
+  on conflict (id) do nothing;
 end;
 $$;
 
@@ -315,6 +340,7 @@ end;
 $$;
 
 revoke all on function public.touch_last_seen() from public;
+revoke all on function public.ensure_my_profile() from public;
 revoke all on table public.direct_messages, public.group_messages from public;
 revoke all on function public.send_direct_message(uuid, text, text, text, text) from public;
 revoke all on function public.get_direct_messages(uuid) from public;
@@ -331,6 +357,7 @@ revoke all on function public.admin_set_user_blocked(uuid, boolean) from public;
 revoke all on function public.admin_review_user(uuid, public.approval_state) from public;
 revoke all on function public.admin_delete_user(uuid) from public;
 grant execute on function public.touch_last_seen() to authenticated;
+grant execute on function public.ensure_my_profile() to authenticated;
 grant execute on function public.send_direct_message(uuid, text, text, text, text) to authenticated;
 grant execute on function public.get_direct_messages(uuid) to authenticated;
 grant execute on function public.send_group_message(text, text, text, text) to authenticated;
