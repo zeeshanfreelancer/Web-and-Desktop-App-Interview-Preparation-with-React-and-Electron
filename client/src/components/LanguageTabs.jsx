@@ -90,7 +90,8 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
   const [dragOverLangIndex, setDragOverLangIndex] = useState(null);
 
   const canReorderLanguages = languages.length > 1 && editingLang === null;
-  const remainingLicenseTime = calculateRemainingTime(user?.subscriptionExpiresAt, currentTime);
+  const licenseExpiresAt = user?.effectivePlan === "trial" ? user?.freeTrialExpiresAt : user?.subscriptionExpiresAt;
+  const remainingLicenseTime = calculateRemainingTime(licenseExpiresAt, currentTime);
 
   const addLanguage = () => {
     if (!newLanguage.trim() || languages.includes(newLanguage.trim())) return;
@@ -382,14 +383,14 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
   }, [activeLang, languages]);
 
   useEffect(() => {
-    if (!modalOpen || !user?.subscriptionExpiresAt) return undefined;
+    if (!modalOpen || !licenseExpiresAt) return undefined;
 
     const interval = setInterval(() => {
       setCurrentTime(Date.now());
     }, 60_000);
 
     return () => clearInterval(interval);
-  }, [modalOpen, user?.subscriptionExpiresAt]);
+  }, [modalOpen, licenseExpiresAt]);
 
   if (chatOpen) return <ChatPage user={user} onBack={() => setChatOpen(false)} />;
 
@@ -575,7 +576,9 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
                   <span>License Time Remaining</span>
                 </div>
 
-                {user?.subscriptionExpiresAt ? (
+                {user?.role === "admin" ? (
+                  <p className="text-sm font-medium text-purple-800">Lifetime administrator access — no expiry.</p>
+                ) : licenseExpiresAt ? (
                   remainingLicenseTime?.expired ? (
                     <p className="text-sm text-red-600 font-medium">Expired</p>
                   ) : (
@@ -595,11 +598,11 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
                     </div>
                   )
                 ) : (
-                  <p className="text-sm text-gray-600">{user?.plan === "free" ? "Free plan: no subscription expiry." : "Subscription expiry has not been set yet."}</p>
+                  <p className="text-sm text-gray-600">{user?.plan === "free" ? "Free plan: no active trial or subscription." : "Subscription expiry has not been set yet."}</p>
                 )}
 
-               {user?.subscriptionExpiresAt && (
-                 <p className="text-xs text-gray-500 mt-3">Expires on {new Date(user.subscriptionExpiresAt).toLocaleString()}</p>
+               {licenseExpiresAt && (
+                 <p className="text-xs text-gray-500 mt-3">{user?.effectivePlan === "trial" ? "Trial expires" : "Expires on"} {new Date(licenseExpiresAt).toLocaleString()}</p>
                )}
               </div>
 
