@@ -124,7 +124,7 @@ declare other_user uuid;
 begin
   if public.is_admin() then
     other_user := target_user_id;
-    if not exists (select 1 from public.profiles where id = other_user and role = 'user') then raise exception 'User not found'; end if;
+    if not exists (select 1 from public.profiles target_profile where target_profile.id = other_user and target_profile.role = 'user') then raise exception 'User not found'; end if;
   else
     select p.id into other_user from public.profiles p where p.role = 'admin' and p.approval_status = 'approved';
   end if;
