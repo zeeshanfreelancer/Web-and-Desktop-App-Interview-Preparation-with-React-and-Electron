@@ -39,8 +39,3 @@ export const onUpdateDownloaded = (callback) =>
 
 export const onUpdateError = (callback) =>
   window.electronAPI?.onUpdateError?.(callback) ?? (() => {});
-
-export const getLicenseStatus = () => window.electronAPI?.getLicenseStatus?.() ?? { status: 'licensed' };
-
-export const activateLicense = (password) =>
-  window.electronAPI?.activateLicense?.(password) ?? { success: false, error: 'Not available' };

@@ -34,10 +34,6 @@ coverage/
 *.sln
 *.sw?
 
-# License secrets (never commit)
-desktop/license/private.pem
-desktop/license/passwords.json
-
 # Electron packaging output
 desktop/dist/
 

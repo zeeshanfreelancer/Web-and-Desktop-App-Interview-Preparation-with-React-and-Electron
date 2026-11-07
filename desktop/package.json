@@ -13,8 +13,7 @@
     "dev": "node scripts/dev.js",
     "build": "npm run build:client && electron-builder",
     "release": "npm run build:client && electron-builder --publish always",
-    "build:client": "cd ../client && npm run build",
-    "add-password": "node scripts/add-password.js"
+    "build:client": "cd ../client && npm run build"
   },
   "build": {
     "appId": "com.interviewprep.app",
@@ -25,21 +24,12 @@
     "files": [
       "main-simple.js",
       "preload.js",
-      "license/**/*.js",
       "package.json"
     ],
     "extraResources": [
       {
         "from": "../client/dist",
         "to": "client/dist"
-      },
-      {
-        "from": "license/licenses.manifest.json",
-        "to": "license/licenses.manifest.json"
-      },
-      {
-        "from": "license/public.pem",
-        "to": "license/public.pem"
       }
     ],
     "publish": {
