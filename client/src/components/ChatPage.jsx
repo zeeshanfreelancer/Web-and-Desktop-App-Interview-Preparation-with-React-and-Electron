@@ -1,3 +1,4 @@
+// Full-page wrapper for chat, with a back action to return to the interview workspace.
 import { FiArrowLeft } from "react-icons/fi";
 import MessagesPanel from "./MessagesPanel";
 

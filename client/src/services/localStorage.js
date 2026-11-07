@@ -1,3 +1,4 @@
+// Local browser storage for questions and languages, with plan-aware workspace limits.
 const STORAGE_KEY = 'interview-questions';
 const LANGUAGES_KEY = 'interview-languages';
 let activeProfileId = null;

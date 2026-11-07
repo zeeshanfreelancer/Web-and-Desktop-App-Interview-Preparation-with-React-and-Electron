@@ -1,3 +1,4 @@
+// Browser entry point: mounts the React application into the page root.
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'

@@ -1,3 +1,4 @@
+// Development launcher: starts Vite, waits for it to respond, then opens Electron against it.
 const { spawn } = require("child_process");
 const http = require("http");
 const path = require("path");

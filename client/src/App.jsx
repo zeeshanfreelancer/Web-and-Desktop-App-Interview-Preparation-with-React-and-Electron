@@ -1,3 +1,4 @@
+// Root application component: restores authentication, starts workspace sync, and routes to the main workspace.
 import { useEffect, useState } from "react";
 import LanguageTabs from "./components/LanguageTabs";
 import UpdateBanner from "./components/UpdateBanner";

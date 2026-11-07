@@ -1,3 +1,4 @@
+// Admin modal for inspecting a user's profile and managing their synced workspace.
 import { useCallback, useEffect, useState } from "react";
 import { FiCircle, FiShield, FiTrash2, FiX } from "react-icons/fi";
 import { profileService } from "../services/profiles";

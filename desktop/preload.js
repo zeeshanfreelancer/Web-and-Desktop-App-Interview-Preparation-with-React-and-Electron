@@ -1,3 +1,4 @@
+// Secure Electron bridge: exposes only approved desktop APIs to the browser renderer.
 const { contextBridge, ipcRenderer } = require("electron");
 
 const subscribe = (channel, callback) => {

@@ -1,3 +1,4 @@
+// Group and private-admin chat UI, including polling, attachments, editing, and admin message deletion.
 import { useEffect, useRef, useState } from "react";
 import { FiEdit2, FiMessageCircle, FiPaperclip, FiRefreshCw, FiSend, FiTrash2, FiUser, FiUsers, FiX } from "react-icons/fi";
 import { profileService } from "../services/profiles";

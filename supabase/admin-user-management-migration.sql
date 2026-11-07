@@ -1,3 +1,4 @@
+-- Incremental Supabase migration: adds administration, subscriptions, messaging, avatars, and access controls.
 -- Run this once in the Supabase SQL Editor to enable central admin user management.
 alter table public.profiles add column if not exists is_blocked boolean not null default false;
 alter table public.profiles add column if not exists last_seen_at timestamptz;

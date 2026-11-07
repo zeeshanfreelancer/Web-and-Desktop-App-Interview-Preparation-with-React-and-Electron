@@ -1,3 +1,4 @@
+// Creates the Supabase client from Vite environment variables and reports setup errors clearly.
 import { createClient } from "@supabase/supabase-js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;

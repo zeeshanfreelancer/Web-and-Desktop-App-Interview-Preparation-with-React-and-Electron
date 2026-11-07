@@ -1,1 +1,2 @@
-@import "tailwindcss"; 
+/* Global stylesheet: imports Tailwind CSS for the React interface. */
+@import "tailwindcss";

@@ -1,3 +1,4 @@
+// Account and admin dashboard: displays access details, subscriptions, profiles, and user management controls.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiCamera, FiCheck, FiClock, FiCreditCard, FiRefreshCw, FiShield, FiUser, FiUsers } from "react-icons/fi";
 import { profileService } from "../services/profiles";

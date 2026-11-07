@@ -1,3 +1,4 @@
+// Keeps the local interview workspace synchronized with the signed-in user's Supabase record.
 import { supabase } from "./supabase";
 import { localStorageService } from "./localStorage";
 

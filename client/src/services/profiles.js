@@ -1,3 +1,4 @@
+// Supabase account service: authentication, profiles, subscriptions, chat, and administrator actions.
 import { supabase, supabaseConfigurationError } from "./supabase";
 
 const requireSupabase = () => {

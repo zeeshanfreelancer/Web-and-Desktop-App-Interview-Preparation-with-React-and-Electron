@@ -1,3 +1,4 @@
+-- Incremental migration: creates a cloud workspace for each user's languages and questions.
 -- Run this once in the Supabase SQL Editor to enable user workspace sync.
 create table if not exists public.user_workspaces (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -20,3 +21,4 @@ create policy "Users can update their own workspace"
   on public.user_workspaces for update to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+-- Incremental migration that creates the per-user cloud workspace used to sync languages and questions.

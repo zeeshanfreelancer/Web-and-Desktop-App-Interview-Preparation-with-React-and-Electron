@@ -1,3 +1,4 @@
+// Admin-only list showing each user's subscription or trial time remaining.
 import { useEffect, useState } from "react";
 import { FiClock } from "react-icons/fi";
 import { profileService } from "../services/profiles";

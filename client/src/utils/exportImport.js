@@ -1,3 +1,4 @@
+// Import/export helpers for question collections and PDF/DOCX document generation.
 import jsPDF from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 import { saveAs } from 'file-saver';

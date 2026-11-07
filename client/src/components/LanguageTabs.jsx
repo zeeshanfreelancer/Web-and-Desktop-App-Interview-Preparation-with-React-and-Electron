@@ -1,3 +1,4 @@
+// Main interview workspace: manages language tabs, questions, settings, chat, import/export, and account views.
 import { useState, useEffect, useRef } from "react";
 import {
   FiSearch,

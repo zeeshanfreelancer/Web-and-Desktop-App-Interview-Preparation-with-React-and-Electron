@@ -1,3 +1,4 @@
+-- Initial Supabase schema: defines authentication profiles, roles, workspace storage, and row-level security.
 -- Run this file in the Supabase SQL Editor before using the app.
 -- Authentication > Providers > Email must be enabled in your Supabase project.
 

@@ -1,3 +1,4 @@
+// Electron-only update notification and download/install controls.
 import { useEffect, useState } from "react";
 import { FiDownload, FiRefreshCw, FiX } from "react-icons/fi";
 import {

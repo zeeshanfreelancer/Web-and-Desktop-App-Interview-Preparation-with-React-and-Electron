@@ -1,3 +1,4 @@
+// Safe browser-side wrappers for the Electron APIs exposed by the preload script.
 export const isElectron = () =>
   typeof window !== 'undefined' && Boolean(window.electronAPI?.isElectron);
 

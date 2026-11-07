@@ -1,3 +1,4 @@
+// Sign-in and registration screen for Supabase-backed accounts.
 import { useState } from "react";
 import { FiLock, FiMessageCircle, FiUserPlus } from "react-icons/fi";
 import { profileService } from "../services/profiles";

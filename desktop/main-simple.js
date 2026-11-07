@@ -1,3 +1,4 @@
+// Electron main process: creates the desktop window, handles file dialogs, and manages app updates.
 const { app, BrowserWindow, Menu, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");

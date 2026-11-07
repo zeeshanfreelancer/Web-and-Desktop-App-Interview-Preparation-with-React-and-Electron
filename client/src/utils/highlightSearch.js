@@ -1,3 +1,4 @@
+// Safely highlights matching text inside question and answer HTML without changing the original data.
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export const highlightHtml = (html, searchTerm) => {

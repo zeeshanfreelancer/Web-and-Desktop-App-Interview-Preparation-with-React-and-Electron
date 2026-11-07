@@ -1,3 +1,4 @@
+-- Incremental migration that introduces the free plan and upgrade-request workflow.
 -- Run this once if you already ran schema.sql before the Free plan was added.
 alter type public.subscription_plan add value if not exists 'free';
 alter table public.profiles add column if not exists requested_plan public.subscription_plan;

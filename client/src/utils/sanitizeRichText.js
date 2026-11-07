@@ -1,3 +1,4 @@
+// Restricts saved rich-text content to an allowlist before it is rendered in the application.
 const ALLOWED_TAGS = new Set([
   "B",
   "BR",

@@ -1,3 +1,4 @@
+// Lightweight rich-text editor used to format interview-question answers.
 import { useRef, useEffect } from 'react';
 import { FiBold, FiItalic, FiList, FiType } from 'react-icons/fi';
 import { MdFormatListNumbered, MdColorize } from 'react-icons/md';
