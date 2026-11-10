@@ -94,6 +94,14 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
   const licenseExpiresAt = user?.effectivePlan === "trial" ? user?.freeTrialExpiresAt : user?.subscriptionExpiresAt;
   const remainingLicenseTime = calculateRemainingTime(licenseExpiresAt, currentTime);
 
+  const refreshWorkspaceAfterSync = () => {
+    const nextLanguages = localStorageService.getLanguages();
+    setLanguages(nextLanguages);
+    setActiveLang((current) => nextLanguages.includes(current) ? current : nextLanguages[0] || "");
+    setQuestions([]);
+    setEditorSessionKey((current) => current + 1);
+  };
+
   const addLanguage = () => {
     if (!newLanguage.trim() || languages.includes(newLanguage.trim())) return;
     if (!localStorageService.canAddLanguage()) {
@@ -567,8 +575,8 @@ function LanguageTabs({ user, onUserUpdated, onSignOut }) {
 
             {/* Account and workspace are visible together on one full-size page. */}
             <div className={user?.role === "admin" ? "min-h-0 flex-1 overflow-y-auto p-6" : "grid min-h-0 flex-1 lg:grid-cols-2"}>
-              {user?.role !== "admin" && <aside className="overflow-y-auto border-b border-gray-200 bg-slate-50 p-6 lg:border-b-0 lg:border-r"><AccountDashboard user={user} onUserUpdated={onUserUpdated} onSignOut={onSignOut} /></aside>}
-              {user?.role === "admin" && adminSettingsView === "dashboard" && <AccountDashboard user={user} onUserUpdated={onUserUpdated} onSignOut={onSignOut} />}
+              {user?.role !== "admin" && <aside className="overflow-y-auto border-b border-gray-200 bg-slate-50 p-6 lg:border-b-0 lg:border-r"><AccountDashboard user={user} onUserUpdated={onUserUpdated} onSignOut={onSignOut} onWorkspaceSynced={refreshWorkspaceAfterSync} /></aside>}
+              {user?.role === "admin" && adminSettingsView === "dashboard" && <AccountDashboard user={user} onUserUpdated={onUserUpdated} onSignOut={onSignOut} onWorkspaceSynced={refreshWorkspaceAfterSync} />}
               {(user?.role !== "admin" || adminSettingsView === "workspace") && <section className="overflow-y-auto p-6">
               {/* License Status */}
               <div className="mb-6 p-4 rounded-xl bg-purple-50 border border-purple-100">
