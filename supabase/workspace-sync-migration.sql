@@ -9,6 +9,11 @@ create table if not exists public.user_workspaces (
 
 alter table public.user_workspaces enable row level security;
 
+-- Policies cannot be created twice, so replace them when this migration is rerun.
+drop policy if exists "Users can read their own workspace" on public.user_workspaces;
+drop policy if exists "Users can create their own workspace" on public.user_workspaces;
+drop policy if exists "Users can update their own workspace" on public.user_workspaces;
+
 create policy "Users can read their own workspace"
   on public.user_workspaces for select to authenticated
   using (user_id = auth.uid());
@@ -21,4 +26,3 @@ create policy "Users can update their own workspace"
   on public.user_workspaces for update to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
--- Incremental migration that creates the per-user cloud workspace used to sync languages and questions.
